@@ -42,3 +42,9 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### Claude ###
+.claude/
+
+# Node
+node_modules/
