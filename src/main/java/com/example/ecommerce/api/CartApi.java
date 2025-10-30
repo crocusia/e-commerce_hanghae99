@@ -95,7 +95,7 @@ public interface CartApi {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))
         )
     })
-    @PutMapping("/{userId}/items/{cartItemId}")
+    @PatchMapping("/{userId}/items/{cartItemId}")
     ResponseEntity<CartItemResponse> updateCartItemQuantity(
         @Parameter(description = "사용자 ID")
         @PathVariable @Positive Long userId,
