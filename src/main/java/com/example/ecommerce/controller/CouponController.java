@@ -1,9 +1,8 @@
 package com.example.ecommerce.controller;
 
-import com.example.ecommerce.api.ProductApi;
+import com.example.ecommerce.api.CouponApi;
 import com.example.ecommerce.dto.common.PageResponse;
-import com.example.ecommerce.dto.product.ProductResponse;
-import com.example.ecommerce.dto.product.ProductStatus;
+import com.example.ecommerce.dto.coupon.CouponResponse;
 import jakarta.validation.constraints.Positive;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -14,35 +13,37 @@ import org.springframework.web.bind.annotation.*;
 
 @Validated
 @RestController
-@RequestMapping("/api/products")
-public class ProductController implements ProductApi {
+@RequestMapping("/api/coupons")
+public class CouponController implements CouponApi {
 
     @Override
-    public ResponseEntity<PageResponse<ProductResponse>> getProducts(
-        @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable
+    public ResponseEntity<PageResponse<CouponResponse>> getAvailableCoupons(
+        @PageableDefault(size = 20, sort = "validUntil", direction = Sort.Direction.ASC) Pageable pageable
     ) {
         // TODO: 서비스 레이어 구현 후 연결
-        // Mock: 빈 페이지 반환
-        PageResponse<ProductResponse> response = PageResponse.empty(
+        PageResponse<CouponResponse> response = PageResponse.empty(
             pageable.getPageNumber(),
             pageable.getPageSize()
         );
-
         return ResponseEntity.ok(response);
     }
 
     @Override
-    public ResponseEntity<ProductResponse> getProduct(
-        @PathVariable @Positive Long productId
+    public ResponseEntity<CouponResponse> getCoupon(
+        @PathVariable @Positive Long couponId
     ) {
-        //Mock 데이터
-        ProductResponse mockResponse = new ProductResponse(
-            productId,
+        CouponResponse mockResponse = new CouponResponse(
+            couponId,
             "Mock",
             1L,
-            "Mock",
-            50,
-            ProductStatus.ACTIVE
+            0.5,
+            0,
+            0,
+            0,
+            null,
+            null,
+            0,
+            null
         );
 
         // TODO: 서비스 레이어 구현 후 연결

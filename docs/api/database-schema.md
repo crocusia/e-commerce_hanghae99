@@ -14,7 +14,7 @@ erDiagram
 		bigint user_id PK "고객 ID"  
 		varchar name "이름 NOT NULL"  
 		varchar email "이메일 NOT NULL UNIQUE"  
-		int balance "잔액 NOT NULL DEFAULT 0 CHECK >= 0"  
+		bigint balance "잔액 NOT NULL DEFAULT 0 CHECK >= 0"  
 		varchar status "상태 NOT NULL DEFAULT ACTIVE"
 		timestamp deleted_at "삭제일시 nullable"
 		timestamp created_at "생성일시 NOT NULL"  
@@ -32,9 +32,9 @@ erDiagram
 		bigint order_id PK "주문 ID"  
 		bigint user_id FK "고객 ID NOT NULL"  
 		bigint user_coupon_id FK "사용된 쿠폰 ID nullable"
-		int total_amount "총 주문금액 NOT NULL CHECK > 0"  
-		int discount_amount "할인 금액 NOT NULL DEFAULT 0 CHECK >= 0"  
-		int final_amount "최종 결제금액 NOT NULL CHECK >= 0"  
+		bigint total_amount "총 주문금액 NOT NULL CHECK > 0"  
+		bigint discount_amount "할인 금액 NOT NULL DEFAULT 0 CHECK >= 0"  
+		bigint final_amount "최종 결제금액 NOT NULL CHECK >= 0"  
 		varchar status "주문 상태 NOT NULL DEFAULT PENDING"
 		timestamp created_at "생성일시 NOT NULL"  
 		timestamp updated_at "수정일시 NOT NULL"  
@@ -45,8 +45,8 @@ erDiagram
 		bigint product_id FK "상품 ID NOT NULL"  
 		varchar status "주문상품 상태 nullable"  
 		int quantity "수량 NOT NULL CHECK > 0"  
-		int unit_price "단가 NOT NULL CHECK >= 0"  
-		int subtotal "소계 NOT NULL CHECK >= 0"  
+		bigint unit_price "단가 NOT NULL CHECK >= 0"  
+		bigint subtotal "소계 NOT NULL CHECK >= 0"  
 		timestamp created_at "생성일시 NOT NULL"
 		timestamp updated_at "수정일시 NOT NULL"
 	}
@@ -63,13 +63,13 @@ erDiagram
 	COUPON {
 		bigint coupon_id PK "쿠폰 ID"  
 		varchar name "쿠폰명 NOT NULL"  
-		int discount_price "할인금액 nullable"  
+		bigint discount_price "할인금액 nullable"  
 		decimal discount_rate "할인율 nullable"  
 		int issue_qty "총 발급수량 NOT NULL CHECK > 0"  
 		int issued_qty "이미 발급된 수량 NOT NULL DEFAULT 0 CHECK >= 0"  
 		date valid_start "유효시작일 NOT NULL"  
 		date valid_end "유효종료일 NOT NULL"  
-		int min_order_amount "최소주문금액 DEFAULT 0"  
+		bigint min_order_amount "최소주문금액 DEFAULT 0"  
 		varchar status "상태 NOT NULL DEFAULT ACTIVE"
 		timestamp deleted_at "삭제일시 nullable"
 		timestamp created_at "생성일시 NOT NULL"
@@ -80,7 +80,7 @@ erDiagram
 	PRODUCT {
 		bigint product_id PK "상품 ID"  
 		varchar name "상품명 NOT NULL"  
-		int price "가격 NOT NULL CHECK >= 0"  
+		bigint price "가격 NOT NULL CHECK >= 0"  
 		text description "상세설명 nullable"  
 		int stock_qty "재고수량 NOT NULL DEFAULT 0 CHECK >= 0"  
 		varchar status "상태 NOT NULL DEFAULT ACTIVE"
@@ -114,7 +114,7 @@ CREATE TABLE users (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL COMMENT '사용자 이름',
     email VARCHAR(255) NOT NULL COMMENT '이메일',
-    balance INT NOT NULL DEFAULT 0 COMMENT '잔액',
+    balance BIGINT NOT NULL DEFAULT 0 COMMENT '잔액',
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '상태: ACTIVE, INACTIVE, DELETED',
     deleted_at TIMESTAMP NULL COMMENT '삭제일시',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -136,7 +136,7 @@ CREATE TABLE users (
 CREATE TABLE products (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL COMMENT '상품명',
-    price INT NOT NULL COMMENT '가격',
+    price BIGINT NOT NULL COMMENT '가격',
     description TEXT COMMENT '상세 설명',
     stock_qty INT NOT NULL DEFAULT 0 COMMENT '재고 수량',
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '상태: ACTIVE, INACTIVE, DELETED',
@@ -182,9 +182,9 @@ CREATE TABLE orders (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     user_id BIGINT NOT NULL COMMENT '사용자 ID',
     user_coupon_id BIGINT NULL COMMENT '사용된 쿠폰 ID',
-    total_amount INT NOT NULL COMMENT '총 주문 금액',
-    discount_amount INT NOT NULL DEFAULT 0 COMMENT '할인 금액',
-    final_amount INT NOT NULL COMMENT '최종 결제 금액',
+    total_amount BIGINT NOT NULL COMMENT '총 주문 금액',
+    discount_amount BIGINT NOT NULL DEFAULT 0 COMMENT '할인 금액',
+    final_amount BIGINT NOT NULL COMMENT '최종 결제 금액',
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING' COMMENT '주문 상태',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -219,8 +219,8 @@ CREATE TABLE order_items (
     order_id BIGINT NOT NULL COMMENT '주문 ID',
     product_id BIGINT NOT NULL COMMENT '상품 ID',
     quantity INT NOT NULL COMMENT '수량',
-    unit_price INT NOT NULL COMMENT '단가 (주문 시점 가격)',
-    subtotal INT NOT NULL COMMENT '소계',
+    unit_price BIGINT NOT NULL COMMENT '단가 (주문 시점 가격)',
+    subtotal BIGINT NOT NULL COMMENT '소계',
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '상태: ACTIVE, INACTIVE, DELETED',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -247,13 +247,13 @@ CREATE TABLE order_items (
 CREATE TABLE coupons (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL COMMENT '쿠폰명',
-    discount_price INT NULL COMMENT '할인 금액 (정액)',
+    discount_price BIGINT NULL COMMENT '할인 금액 (정액)',
     discount_rate DECIMAL(5,2) NULL COMMENT '할인율 (정률)',
     total_quantity INT NOT NULL COMMENT '총 발급 수량',
     issued_quantity INT NOT NULL DEFAULT 0 COMMENT '현재 발급된 수량',
     valid_from DATE NOT NULL COMMENT '유효 시작일',
     valid_until DATE NOT NULL COMMENT '유효 종료일',
-    min_order_amount INT DEFAULT 0 COMMENT '최소 주문 금액',
+    min_order_amount BIGINT DEFAULT 0 COMMENT '최소 주문 금액',
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '상태: ACTIVE, INACTIVE, DELETED',
     deleted_at TIMESTAMP NULL COMMENT '삭제일시',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
