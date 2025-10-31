@@ -48,7 +48,7 @@ tags:
   description: 유저가 보유한 쿠폰
 paths:
   /api/carts/{userId}/items/{cartItemId}:
-    put:
+    patch:
       tags:
       - 장바구니
       summary: 장바구니 상품 수량 변경
