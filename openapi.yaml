@@ -1,0 +1,1162 @@
+
+openapi: 3.1.0
+info:
+  title: 이커머스 플랫폼 API
+  description: |
+    ## 이커머스 플랫폼 API 명세서
+
+    온라인 상품 판매 플랫폼의 API 문서입니다.
+
+    ### 주요 기능
+    - **상품 카탈로그**: 상품 조회, 재고 확인
+    - **장바구니**: 상품 담기, 수량 변경, 삭제
+    - **주문 및 결제**: 주문 생성, 잔액 기반 결제
+    - **선착순 쿠폰**: 쿠폰 발급 (1인 1매), 사용
+
+    ### 특징
+    - 재고 동시성 제어 (비관적 락/낙관적 락)
+    - 선착순 쿠폰 동시성 제어 (Redis 분산 락)
+    - 트랜잭션 무결성 보장
+    - 외부 데이터 플랫폼 연동 (비동기)
+
+    ### 기술 스택
+    - Spring Boot 3.x
+    - MySQL/PostgreSQL
+    - Redis
+    - Kafka/RabbitMQ
+  contact:
+    name: E-commerce API Team
+    email: support@example.com
+  version: 1.0.0
+servers:
+- url: http://localhost:8080
+  description: 로컬 개발 서버
+- url: https://api.example.com
+  description: 프로덕션 서버
+tags:
+- name: 주문 및 결제
+  description: 주문 생성 및 결제 처리 API
+- name: 쿠폰
+  description: 선착순 쿠폰 시스템 API
+- name: 장바구니
+  description: 장바구니 관리 API
+- name: 주문 상품
+  description: 주문 상품 관리 API
+- name: 상품
+  description: 상품 카탈로그 및 재고 관리 API
+- name: 유저 쿠폰
+  description: 유저가 보유한 쿠폰
+paths:
+  /api/carts/{userId}/items/{cartItemId}:
+    patch:
+      tags:
+      - 장바구니
+      summary: 장바구니 상품 수량 변경
+      description: "장바구니의 특정 상품 수량을 변경합니다. 수량 변경 시 재고를 확인하며, 재고 초과 수량 변경은 차단됩니다."
+      operationId: updateCartItemQuantity
+      parameters:
+      - name: userId
+        in: path
+        description: 사용자 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      - name: cartItemId
+        in: path
+        description: 장바구니 상품 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      - name: quantity
+        in: query
+        description: 변경할 수량
+        required: true
+        schema:
+          type: integer
+          format: int32
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: 수량 변경 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CartItemResponse"
+        "400":
+          description: 재고 부족 또는 잘못된 요청
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 장바구니 상품을 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags:
+      - 장바구니
+      summary: 장바구니 상품 삭제
+      description: 장바구니에서 특정 상품을 삭제합니다.
+      operationId: deleteCartItem
+      parameters:
+      - name: userId
+        in: path
+        description: 사용자 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      - name: cartItemId
+        in: path
+        description: 장바구니 상품 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "204":
+          description: 삭제 성공
+        "404":
+          description: 장바구니 상품을 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/user-coupons/issue:
+    post:
+      tags:
+      - 유저 쿠폰
+      summary: "쿠폰 발급 (선착순, 1인 1매)"
+      description: 선착순 쿠폰을 발급합니다.
+      operationId: issueCoupon
+      requestBody:
+        description: 쿠폰 발급 요청
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueCouponRequest"
+        required: true
+      responses:
+        "201":
+          description: 쿠폰 발급 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UserCouponResponse"
+        "400":
+          description: 발급 수량 마감 또는 이미 발급받은 쿠폰
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 쿠폰 또는 사용자를 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/orders:
+    get:
+      tags:
+      - 주문 및 결제
+      summary: 주문 목록 조회 (페이징)
+      description: |
+        사용자의 전체 주문 목록을 페이징하여 조회합니다.
+
+        **페이징 파라미터:**
+        - `page`: 페이지 번호 (0부터 시작, 기본값: 0)
+        - `size`: 페이지 크기 (기본값: 20, 최대: 100)
+        - `sort`: 정렬 조건 (기본값: createdAt,desc - 최신순)
+      operationId: getOrders
+      parameters:
+      - name: userId
+        in: query
+        description: 사용자 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      - name: pageable
+        in: query
+        description: "페이징 정보 (page: 페이지 번호, size: 페이지 크기, sort: 정렬)"
+        required: true
+        schema:
+          $ref: "#/components/schemas/Pageable"
+      responses:
+        "200":
+          description: 주문 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageResponse"
+        "404":
+          description: 사용자를 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      tags:
+      - 주문 및 결제
+      summary: 주문 생성
+      description: 장바구니 상품을 기반으로 주문을 생성합니다.
+      operationId: createOrder
+      requestBody:
+        description: 주문 생성 요청
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderRequest"
+        required: true
+      responses:
+        "201":
+          description: 주문 생성 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/OrderResponse"
+        "400":
+          description: "재고 부족, 장바구니 비어있음, 또는 잘못된 요청"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 사용자 또는 쿠폰을 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/orders/{orderId}/cancel:
+    post:
+      tags:
+      - 주문 및 결제
+      summary: 주문 취소
+      description: 결제 대기 중인 주문을 취소합니다.
+      operationId: cancelOrder
+      parameters:
+      - name: orderId
+        in: path
+        description: 주문 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: 주문 취소 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/OrderResponse"
+        "400":
+          description: 이미 결제된 주문은 취소 불가
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 주문을 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/orders/payment:
+    post:
+      tags:
+      - 주문 및 결제
+      summary: 결제 처리
+      description: 주문에 대한 결제를 처리합니다.
+      operationId: processPayment
+      requestBody:
+        description: 결제 요청
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentRequest"
+        required: true
+      responses:
+        "200":
+          description: 결제 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/OrderResponse"
+        "400":
+          description: "잔액 부족, 이미 결제된 주문, 또는 쿠폰 사용 조건 불충족"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 주문 또는 쿠폰을 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/order-items/{orderItemId}/return:
+    post:
+      tags:
+      - 주문 상품
+      summary: 주문 상품 반품
+      description: 배송 완료된 주문 상품을 반품합니다.
+      operationId: returnOrderItem
+      parameters:
+      - name: orderItemId
+        in: path
+        description: 주문 상품 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: 주문 상품 반품 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/OrderItemResponse"
+        "400":
+          description: 반품 불가능한 상태 (배송완료 상태가 아님)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 주문 상품을 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/order-items/{orderItemId}/exchange:
+    post:
+      tags:
+      - 주문 상품
+      summary: 주문 상품 교환
+      description: 배송 완료된 주문 상품을 교환합니다.
+      operationId: exchangeOrderItem
+      parameters:
+      - name: orderItemId
+        in: path
+        description: 주문 상품 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: 주문 상품 교환 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/OrderItemResponse"
+        "400":
+          description: 교환 불가능한 상태 (배송완료 상태가 아님) 또는 교환 상품 재고 부족
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 주문 상품을 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/order-items/{orderItemId}/cancel:
+    post:
+      tags:
+      - 주문 상품
+      summary: 주문 상품 취소
+      description: "ORDERED, PREPARING 상태의 주문 상품을 취소합니다."
+      operationId: cancelOrderItem
+      parameters:
+      - name: orderItemId
+        in: path
+        description: 주문 상품 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: 주문 상품 취소 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/OrderItemResponse"
+        "400":
+          description: 취소 불가능한 상태 (이미 배송중이거나 배송완료)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 주문 상품을 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/carts/{userId}/items:
+    post:
+      tags:
+      - 장바구니
+      summary: 장바구니에 상품 추가
+      description: "장바구니에 상품을 추가합니다. 담기 시점에 재고를 확인하며, 동일 상품 추가 시 수량이 증가합니다. 재고 초과\
+        \ 수량은 차단됩니다."
+      operationId: addCartItem
+      parameters:
+      - name: userId
+        in: path
+        description: 사용자 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      requestBody:
+        description: 장바구니 추가 요청
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CartItemRequest"
+        required: true
+      responses:
+        "200":
+          description: 장바구니 추가 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CartItemResponse"
+        "400":
+          description: 재고 부족 또는 잘못된 요청
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 상품 또는 사용자를 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/user-coupons/users/{userId}:
+    get:
+      tags:
+      - 유저 쿠폰
+      summary: 사용자 보유 쿠폰 목록 조회 (페이징)
+      description: 특정 사용자가 보유한 쿠폰 목록을 페이징하여 조회합니다.
+      operationId: getUserCoupons
+      parameters:
+      - name: userId
+        in: path
+        description: 사용자 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      - name: pageable
+        in: query
+        description: "페이징 정보 (page: 페이지 번호, size: 페이지 크기, sort: 정렬)"
+        required: true
+        schema:
+          $ref: "#/components/schemas/Pageable"
+      responses:
+        "200":
+          description: 보유 쿠폰 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageResponse"
+        "404":
+          description: 사용자를 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/user-coupons/users/{userId}/coupons/{userCouponId}:
+    get:
+      tags:
+      - 유저 쿠폰
+      summary: 특정 사용자 쿠폰 조회
+      description: 특정 사용자 쿠폰의 상세 정보를 조회합니다.
+      operationId: getUserCoupon
+      parameters:
+      - name: userId
+        in: path
+        description: 사용자 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      - name: userCouponId
+        in: path
+        description: 사용자 쿠폰 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: 사용자 쿠폰 조회 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UserCouponResponse"
+        "404":
+          description: 사용자 쿠폰을 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/products:
+    get:
+      tags:
+      - 상품
+      summary: 상품 목록 조회 (페이징)
+      description: |
+        전체 상품 목록을 페이징하여 조회합니다.
+        **페이징 파라미터:**
+        - `page`: 페이지 번호 (0부터 시작, 기본값: 0)
+        - `size`: 페이지 크기 (기본값: 20, 최대: 100)
+        - `sort`: 정렬 조건 (예: `name,asc` 또는 `createdAt,desc`)
+      operationId: getProducts
+      parameters:
+      - name: pageable
+        in: query
+        description: "페이징 정보 (page: 페이지 번호, size: 페이지 크기, sort: 정렬)"
+        required: true
+        schema:
+          $ref: "#/components/schemas/Pageable"
+      responses:
+        "200":
+          description: 상품 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageResponse"
+  /api/products/{productId}:
+    get:
+      tags:
+      - 상품
+      summary: 상품 상세 조회
+      description: 특정 상품의 상세 정보를 조회합니다.
+      operationId: getProduct
+      parameters:
+      - name: productId
+        in: path
+        description: 상품 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: 상품 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductResponse"
+        "404":
+          description: 상품을 찾을 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/orders/{orderId}:
+    get:
+      tags:
+      - 주문 및 결제
+      summary: 주문 상세 조회
+      description: 특정 주문의 상세 정보를 조회합니다.
+      operationId: getOrder
+      parameters:
+      - name: orderId
+        in: path
+        description: 주문 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: 주문 조회 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/OrderResponse"
+        "404":
+          description: 주문을 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/order-items/{orderItemId}:
+    get:
+      tags:
+      - 주문 상품
+      summary: 주문 상품 상세 조회
+      description: 특정 주문 상품의 상세 정보를 조회합니다.
+      operationId: getOrderItem
+      parameters:
+      - name: orderItemId
+        in: path
+        description: 주문 상품 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: 주문 상품 조회 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/OrderItemResponse"
+        "404":
+          description: 주문 상품을 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/order-items/orders/{orderId}:
+    get:
+      tags:
+      - 주문 상품
+      summary: 주문의 상품 목록 조회
+      description: 특정 주문에 포함된 모든 상품 목록을 조회합니다.
+      operationId: getOrderItems
+      parameters:
+      - name: orderId
+        in: path
+        description: 주문 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: 주문 상품 목록 조회 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/OrderItemResponse"
+        "404":
+          description: 주문을 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/coupons:
+    get:
+      tags:
+      - 쿠폰
+      summary: 쿠폰 목록 조회 (페이징)
+      description: |
+        전체 쿠폰 목록을 페이징하여 조회합니다.
+
+        **페이징 파라미터:**
+        - `page`: 페이지 번호 (0부터 시작, 기본값: 0)
+        - `size`: 페이지 크기 (기본값: 20, 최대: 100)
+        - `sort`: 정렬 조건 (기본값: validUntil,asc)
+      operationId: getAvailableCoupons
+      parameters:
+      - name: pageable
+        in: query
+        description: "페이징 정보 (page: 페이지 번호, size: 페이지 크기, sort: 정렬)"
+        required: true
+        schema:
+          $ref: "#/components/schemas/Pageable"
+      responses:
+        "200":
+          description: 쿠폰 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageResponse"
+  /api/coupons/{couponId}:
+    get:
+      tags:
+      - 쿠폰
+      summary: 특정 쿠폰 조회
+      description: 특정 쿠폰의 상세 정보를 조회합니다.
+      operationId: getCoupon
+      parameters:
+      - name: couponId
+        in: path
+        description: 쿠폰 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: 쿠폰 조회 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CouponResponse"
+        "404":
+          description: 쿠폰을 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/carts/{userId}:
+    get:
+      tags:
+      - 장바구니
+      summary: 장바구니 조회
+      description: "사용자의 장바구니 전체 내역을 조회합니다. 상품명, 가격, 수량, 소계, 재고 상태 및 전체 주문 금액을 포함합\
+        니다."
+      operationId: getCart
+      parameters:
+      - name: userId
+        in: path
+        description: 사용자 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "200":
+          description: 장바구니 조회 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CartResponse"
+        "404":
+          description: 사용자를 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags:
+      - 장바구니
+      summary: 장바구니 전체 비우기
+      description: 사용자의 장바구니를 전체 비웁니다.
+      operationId: clearCart
+      parameters:
+      - name: userId
+        in: path
+        description: 사용자 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          exclusiveMinimum: 0
+      responses:
+        "204":
+          description: 장바구니 비우기 성공
+        "404":
+          description: 사용자를 찾을 수 없음
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    CartItemResponse:
+      type: object
+      description: 장바구니 상품 응답
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: 장바구니 상품 ID
+        productId:
+          type: integer
+          format: int64
+          description: 상품 ID
+        productName:
+          type: string
+          description: 상품명
+        productPrice:
+          type: integer
+          format: int64
+          description: 상품 가격
+        quantity:
+          type: integer
+          format: int32
+          description: 수량
+        subtotal:
+          type: integer
+          format: int64
+          description: 소계
+        stockStatus:
+          type: string
+          description: 재고 상태
+          enum:
+          - AVAILABLE
+          - LOW_STOCK
+          - OUT_OF_STOCK
+    ErrorResponse:
+      type: object
+      description: 에러 응답
+      properties:
+        code:
+          type: string
+          description: 에러 코드
+        message:
+          type: string
+          description: 에러 메시지
+    IssueCouponRequest:
+      type: object
+      description: 쿠폰 발급 요청
+      properties:
+        userId:
+          type: integer
+          format: int64
+          description: 사용자 ID
+        couponId:
+          type: integer
+          format: int64
+          description: 쿠폰 ID
+      required:
+      - couponId
+      - userId
+    UserCouponResponse:
+      type: object
+      description: 사용자 쿠폰 응답
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: 사용자 쿠폰 ID
+        userId:
+          type: integer
+          format: int64
+          description: 사용자 ID
+        couponId:
+          type: integer
+          format: int64
+          description: 쿠폰 ID
+        couponName:
+          type: string
+          description: 쿠폰명
+        discountPrice:
+          type: integer
+          format: int64
+          description: 할인 금액
+        discountRate:
+          type: number
+          format: double
+          description: 할인율
+        minOrderAmount:
+          type: integer
+          format: int64
+          description: 최소 주문 금액
+        validFrom:
+          type: string
+          format: date
+          description: 유효 시작일
+        validUntil:
+          type: string
+          format: date
+          description: 유효 종료일
+        issuedAt:
+          type: string
+          format: date-time
+          description: 발급 일시
+        usedAt:
+          type: string
+          format: date-time
+          description: 사용 일시
+        orderId:
+          type: integer
+          format: int64
+          description: 사용된 주문 ID
+        status:
+          type: string
+          description: 쿠폰 상태
+          enum:
+          - UNUSED
+          - USED
+          - EXPIRED
+    OrderRequest:
+      type: object
+      description: 주문 생성 요청
+      properties:
+        userId:
+          type: integer
+          format: int64
+          description: 사용자 ID
+      required:
+      - userId
+    OrderItemResponse:
+      type: object
+      description: 주문 상품 응답
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: 주문 상품 ID
+        orderId:
+          type: integer
+          format: int64
+          description: 주문 ID
+        productId:
+          type: integer
+          format: int64
+          description: 상품 ID
+        productName:
+          type: string
+          description: 상품명
+        quantity:
+          type: integer
+          format: int32
+          description: 수량
+        unitPrice:
+          type: integer
+          format: int32
+          description: 단가
+        subtotal:
+          type: integer
+          format: int32
+          description: 소계
+        status:
+          type: string
+          description: 주문 상품 상태
+          enum:
+          - ORDERED
+          - PREPARING
+          - SHIPPED
+          - DELIVERED
+          - CANCELLED
+          - RETURNED
+          - EXCHANGED
+    OrderResponse:
+      type: object
+      description: 주문 응답
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: 주문 ID
+        userId:
+          type: integer
+          format: int64
+          description: 사용자 ID
+        items:
+          type: array
+          description: 주문 상품 목록
+          items:
+            $ref: "#/components/schemas/OrderItemResponse"
+        totalAmount:
+          type: integer
+          format: int32
+          description: 총 주문 금액
+        discountAmount:
+          type: integer
+          format: int32
+          description: 할인 금액
+        finalAmount:
+          type: integer
+          format: int32
+          description: 최종 결제 금액
+        status:
+          type: string
+          description: 주문 상태
+          enum:
+          - PENDING
+          - PAYMENT_COMPLETED
+          - CANCELLED
+        createdAt:
+          type: string
+          format: date-time
+          description: 생성 일시
+    PaymentRequest:
+      type: object
+      description: 결제 요청
+      properties:
+        orderId:
+          type: integer
+          format: int64
+          description: 주문 ID
+        userCouponId:
+          type: integer
+          format: int64
+          description: 쿠폰 ID (선택사항)
+      required:
+      - orderId
+    CartItemRequest:
+      type: object
+      description: 장바구니 추가 요청
+      properties:
+        productId:
+          type: integer
+          format: int64
+          description: 상품 ID
+        quantity:
+          type: integer
+          format: int32
+          description: 수량
+      required:
+      - productId
+      - quantity
+    Pageable:
+      type: object
+      properties:
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+        sort:
+          type: array
+          items:
+            type: string
+    PageResponse:
+      type: object
+      description: 페이징 응답
+      properties:
+        content:
+          type: array
+          description: 현재 페이지 데이터
+          items: {}
+        page:
+          type: integer
+          format: int32
+          description: 현재 페이지 번호 (0부터 시작)
+        size:
+          type: integer
+          format: int32
+          description: 페이지 크기
+        totalElements:
+          type: integer
+          format: int64
+          description: 전체 요소 개수
+        totalPages:
+          type: integer
+          format: int32
+          description: 전체 페이지 수
+        first:
+          type: boolean
+          description: 첫 페이지 여부
+        last:
+          type: boolean
+          description: 마지막 페이지 여부
+        empty:
+          type: boolean
+          description: 비어있는 페이지 여부
+    ProductResponse:
+      type: object
+      description: 상품 응답
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: 상품 ID
+        name:
+          type: string
+          description: 상품명
+        price:
+          type: integer
+          format: int64
+          description: 가격
+        description:
+          type: string
+          description: 상세 설명
+        stockQty:
+          type: integer
+          format: int32
+          description: 재고 수량
+        status:
+          type: string
+          description: 상품 상태
+          enum:
+          - ACTIVE
+          - INACTIVE
+          - DELETED
+    CouponResponse:
+      type: object
+      description: 쿠폰 응답
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: 쿠폰 ID
+        name:
+          type: string
+          description: 쿠폰명
+        discountPrice:
+          type: integer
+          format: int64
+          description: 할인 금액
+        discountRate:
+          type: number
+          format: double
+          description: 할인율
+        totalQuantity:
+          type: integer
+          format: int32
+          description: 총 발급 수량
+        issuedQuantity:
+          type: integer
+          format: int32
+          description: 발급된 수량
+        remainingQuantity:
+          type: integer
+          format: int32
+          description: 남은 수량
+        validFrom:
+          type: string
+          format: date
+          description: 유효 시작일
+        validUntil:
+          type: string
+          format: date
+          description: 유효 종료일
+        minOrderAmount:
+          type: integer
+          format: int32
+          description: 최소 주문 금액
+        status:
+          type: string
+          description: 쿠폰 상태
+          enum:
+          - ACTIVE
+          - INACTIVE
+          - DELETED
+    CartResponse:
+      type: object
+      description: 장바구니 전체 응답
+      properties:
+        items:
+          type: array
+          description: 장바구니 상품 목록
+          items:
+            $ref: "#/components/schemas/CartItemResponse"
+        totalAmount:
+          type: integer
+          format: int64
+          description: 총 상품 금액
+        discountAmount:
+          type: integer
+          format: int64
+          description: 할인 금액
