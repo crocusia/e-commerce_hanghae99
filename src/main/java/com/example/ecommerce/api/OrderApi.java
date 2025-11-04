@@ -14,9 +14,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
+//import org.springframework.data.domain.Pageable;
+//import org.springframework.data.domain.Sort;
+//import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -52,10 +52,10 @@ public interface OrderApi {
     @GetMapping
     ResponseEntity<PageResponse<OrderResponse>> getOrders(
         @Parameter(description = "사용자 ID")
-        @RequestParam @Positive Long userId,
+        @RequestParam @Positive Long userId
 
-        @Parameter(description = "페이징 정보 (page: 페이지 번호, size: 페이지 크기, sort: 정렬)")
-        @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+        //@Parameter(description = "페이징 정보 (page: 페이지 번호, size: 페이지 크기, sort: 정렬)")
+        //@PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     );
 
     @Operation(

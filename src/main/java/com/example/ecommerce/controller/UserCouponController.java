@@ -6,9 +6,9 @@ import com.example.ecommerce.dto.coupon.IssueCouponRequest;
 import com.example.ecommerce.dto.coupon.UserCouponResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
+//import org.springframework.data.domain.Pageable;
+//import org.springframework.data.domain.Sort;
+//import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -44,13 +44,13 @@ public class UserCouponController implements UserCouponApi {
 
     @Override
     public ResponseEntity<PageResponse<UserCouponResponse>> getUserCoupons(
-        @PathVariable @Positive Long userId,
-        @PageableDefault(size = 20, sort = "issuedAt", direction = Sort.Direction.DESC) Pageable pageable
+        @PathVariable @Positive Long userId
+        //@PageableDefault(size = 20, sort = "issuedAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         // TODO: 서비스 레이어 구현 후 연결
         PageResponse<UserCouponResponse> response = PageResponse.empty(
-            pageable.getPageNumber(),
-            pageable.getPageSize()
+            0,  // pageable.getPageNumber()
+            20  // pageable.getPageSize()
         );
         return ResponseEntity.ok(response);
     }

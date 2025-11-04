@@ -11,9 +11,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Positive;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
+//import org.springframework.data.domain.Pageable;
+//import org.springframework.data.domain.Sort;
+//import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -43,11 +43,11 @@ public interface ProductApi {
     })
     @GetMapping
     ResponseEntity<PageResponse<ProductResponse>> getProducts(
-        @Parameter(
-            description = "페이징 정보 (page: 페이지 번호, size: 페이지 크기, sort: 정렬)",
-            example = "page=0&size=20&sort=name,asc"
-        )
-        @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable
+        //@Parameter(
+        //    description = "페이징 정보 (page: 페이지 번호, size: 페이지 크기, sort: 정렬)",
+        //    example = "page=0&size=20&sort=name,asc"
+        //)
+        //@PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable
     );
 
     @Operation(
