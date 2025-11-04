@@ -10,87 +10,90 @@
 
 ```mermaid
 erDiagram
-	USER {
-		bigint user_id PK "고객 ID"  
-		varchar name "이름 NOT NULL"  
-		varchar email "이메일 NOT NULL UNIQUE"  
-		bigint balance "잔액 NOT NULL DEFAULT 0 CHECK >= 0"  
-		varchar status "상태 NOT NULL DEFAULT ACTIVE"
-		datetime deleted_at "삭제일시 nullable"
-		datetime created_at "생성일시 NOT NULL"  
-		datetime updated_at "수정일시 NOT NULL"  
-	}
+    USER {
+       bigint user_id PK "고객 ID"  
+       varchar name "이름 NOT NULL"  
+       varchar email "이메일 NOT NULL UNIQUE"  
+       bigint balance "잔액 NOT NULL DEFAULT 0 CHECK >= 0"  
+       varchar status "상태 NOT NULL DEFAULT ACTIVE"
+       datetime deleted_at "삭제일시 nullable"
+       datetime created_at "생성일시 NOT NULL"  
+       datetime updated_at "수정일시 NOT NULL"  
+    }
     CART_ITEM {
-		bigint cart_item_id PK "장바구니상품 ID"  
-		bigint user_id "고객 ID NOT NULL"  
-		bigint product_id "상품 ID NOT NULL"  
-		int quantity "수량 NOT NULL CHECK > 0"  
-		datetime created_at "생성일시 NOT NULL"  
-		datetime updated_at "수정일시 NOT NULL"  
-	}
-	ORDER {
-		bigint order_id PK "주문 ID"  
-		bigint user_id "고객 ID NOT NULL"  
-		bigint user_coupon_id "사용된 쿠폰 ID nullable"
-		bigint total_amount "총 주문금액 NOT NULL CHECK > 0"  
-		bigint discount_amount "할인 금액 NOT NULL DEFAULT 0 CHECK >= 0"  
-		bigint final_amount "최종 결제금액 NOT NULL CHECK >= 0"  
-		varchar status "주문 상태 NOT NULL DEFAULT PENDING"
-		datetime created_at "생성일시 NOT NULL"  
-		datetime updated_at "수정일시 NOT NULL"  
-	}
-	ORDER_ITEM {
-		bigint order_item_id PK "주문상품 ID"  
-		bigint order_id "주문 ID NOT NULL"  
-		bigint product_id "상품 ID NOT NULL"  
-		varchar status "주문상품 상태 nullable"  
-		int quantity "수량 NOT NULL CHECK > 0"  
-		bigint unit_price "단가 NOT NULL CHECK >= 0"  
-		bigint subtotal "소계 NOT NULL CHECK >= 0"  
-		datetime created_at "생성일시 NOT NULL"
-		datetime updated_at "수정일시 NOT NULL"
-	}
-	USER_COUPON {
-		bigint user_coupon_id PK "고객쿠폰 ID"  
-		bigint user_id "고객 ID NOT NULL"  
-		bigint coupon_id "쿠폰 ID NOT NULL"  
-		datetime issued_at "발급일시 NOT NULL"  
-		datetime used_at "사용일시 nullable"  
-		bigint order_id "사용된 주문 ID nullable"  
-		varchar status "상태 NOT NULL DEFAULT UNUSED"  
-		string constraint "UNIQUE user_id coupon_id"
-	}
-	COUPON {
-		bigint coupon_id PK "쿠폰 ID"  
-		varchar name "쿠폰명 NOT NULL"  
-		bigint discount_price "할인금액 nullable"  
-		decimal discount_rate "할인율 nullable"  
-		int issue_qty "총 발급수량 NOT NULL CHECK > 0"  
-		int issued_qty "이미 발급된 수량 NOT NULL DEFAULT 0 CHECK >= 0"  
-		date valid_start "유효시작일 NOT NULL"  
-		date valid_end "유효종료일 NOT NULL"  
-		bigint min_order_amount "최소주문금액 DEFAULT 0"  
-		varchar status "상태 NOT NULL DEFAULT ACTIVE"
-		datetime deleted_at "삭제일시 nullable"
-		datetime created_at "생성일시 NOT NULL"
-		datetime updated_at "수정일시 NOT NULL"
-		string constraint "CHECK issued_qty <= issue_qty"
-		string constraint "CHECK discount_price IS NOT NULL OR discount_rate IS NOT NULL"
-	}
-	PRODUCT {
-		bigint product_id PK "상품 ID"  
-		varchar name "상품명 NOT NULL"  
-		bigint price "가격 NOT NULL CHECK >= 0"  
-		text description "상세설명 nullable"  
-		int stock_qty "재고수량 NOT NULL DEFAULT 0 CHECK >= 0"  
-		bigint view_count "조회수 NOT NULL DEFAULT 0 CHECK >= 0"
-        int sales_count "판매량 NOT NULL DEFAULT 0 CHECK >= 0"
-        decimal popularity_score "인기점수 NOT NULL DEFAULT 0.0 CHECK >= 0"
-		varchar status "상태 NOT NULL DEFAULT ACTIVE"
-		datetime deleted_at "삭제일시 nullable"
-		datetime created_at "생성일시 NOT NULL"  
-		datetime updated_at "수정일시 NOT NULL"  
-	}
+       bigint cart_item_id PK "장바구니상품 ID"  
+       bigint user_id "고객 ID NOT NULL"  
+       bigint product_id "상품 ID NOT NULL"  
+       int quantity "수량 NOT NULL CHECK > 0"  
+       datetime created_at "생성일시 NOT NULL"  
+       datetime updated_at "수정일시 NOT NULL"  
+    }
+    ORDER {
+       bigint order_id PK "주문 ID"
+       varchar order_number "주문번호 NOT NULL UNIQUE"
+       bigint user_id "고객 ID NOT NULL"  
+       bigint user_coupon_id "사용된 쿠폰 ID nullable"
+       bigint total_amount "총 주문금액 NOT NULL CHECK > 0"  
+       bigint discount_amount "할인 금액 NOT NULL DEFAULT 0 CHECK >= 0"  
+       bigint final_amount "최종 결제금액 NOT NULL CHECK >= 0"  
+       varchar status "주문 상태 NOT NULL DEFAULT PENDING"
+       datetime created_at "생성일시 NOT NULL"  
+       datetime updated_at "수정일시 NOT NULL"  
+    }
+    ORDER_ITEM {
+       bigint order_item_id PK "주문상품 ID"  
+       bigint order_id "주문 ID NOT NULL"  
+       bigint product_id "상품 ID NOT NULL"
+       varchar product_name "주문 시점 상품명 NOT NULL"
+       int quantity "수량 NOT NULL CHECK > 0"  
+       bigint unit_price "주문 시점 단가 NOT NULL CHECK >= 0"  
+       bigint subtotal "소계 NOT NULL CHECK >= 0"
+       varchar status "주문상품 상태 NOT NULL DEFAULT ORDERED"  
+       datetime created_at "생성일시 NOT NULL"
+       datetime updated_at "수정일시 NOT NULL"
+    }
+    USER_COUPON {
+       bigint user_coupon_id PK "고객쿠폰 ID"  
+       bigint user_id "고객 ID NOT NULL"  
+       bigint coupon_id "쿠폰 ID NOT NULL"  
+       datetime issued_at "발급일시 NOT NULL"  
+       datetime used_at "사용일시 nullable"  
+       bigint order_id "사용된 주문 ID nullable"  
+       varchar status "상태 NOT NULL DEFAULT UNUSED"  
+       string constraint "UNIQUE user_id coupon_id"
+    }
+    COUPON {
+       bigint coupon_id PK "쿠폰 ID"  
+       varchar name "쿠폰명 NOT NULL"
+       varchar discount_type "할인 타입 NOT NULL FIXED/PERCENTAGE"
+       bigint discount_price "할인금액 nullable"  
+       decimal discount_rate "할인율 nullable"  
+       int issue_qty "총 발급수량 NOT NULL CHECK > 0"  
+       int issued_qty "이미 발급된 수량 NOT NULL DEFAULT 0 CHECK >= 0"  
+       date valid_start "유효시작일 NOT NULL"  
+       date valid_end "유효종료일 NOT NULL"  
+       bigint min_order_amount "최소주문금액 DEFAULT 0"  
+       varchar status "상태 NOT NULL DEFAULT ACTIVE"
+       datetime deleted_at "삭제일시 nullable"
+       datetime created_at "생성일시 NOT NULL"
+       datetime updated_at "수정일시 NOT NULL"
+       string constraint "CHECK issued_qty <= issue_qty"
+       string constraint "CHECK discount_price IS NOT NULL OR discount_rate IS NOT NULL"
+    }
+    PRODUCT {
+       bigint product_id PK "상품 ID"  
+       varchar name "상품명 NOT NULL"  
+       bigint price "가격 NOT NULL CHECK >= 0"  
+       text description "상세설명 nullable"  
+       int stock_qty "재고수량 NOT NULL DEFAULT 0 CHECK >= 0"  
+       bigint view_count "조회수 NOT NULL DEFAULT 0 CHECK >= 0"
+       int sales_count "판매량 NOT NULL DEFAULT 0 CHECK >= 0"
+       decimal popularity_score "인기점수 NOT NULL DEFAULT 0.0 CHECK >= 0"
+       varchar status "상태 NOT NULL DEFAULT ACTIVE"
+       datetime deleted_at "삭제일시 nullable"
+       datetime created_at "생성일시 NOT NULL"  
+       datetime updated_at "수정일시 NOT NULL"  
+    }
     USER ||--o{ ORDER : "places"
     USER ||--o{ USER_COUPON : "owns"
     USER ||--o{ CART_ITEM : "has"
@@ -190,6 +193,7 @@ CREATE TABLE cart_items (
 ```sql
 CREATE TABLE orders (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    order_number VARCHAR(50) NOT NULL UNIQUE COMMENT '주문번호 (예: ORD20250115001)',
     user_id BIGINT NOT NULL COMMENT '사용자 ID (논리적 참조: users.id)',
     user_coupon_id BIGINT NULL COMMENT '사용된 쿠폰 ID (논리적 참조: user_coupons.id)',
     total_amount BIGINT NOT NULL COMMENT '총 주문 금액',
@@ -199,9 +203,11 @@ CREATE TABLE orders (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
+    INDEX idx_order_number (order_number),
     INDEX idx_user_id (user_id),
     INDEX idx_status (status),
     INDEX idx_created_at (created_at DESC),
+    INDEX idx_user_status (user_id, status),
     INDEX idx_user_created (user_id, created_at DESC),
 
     CONSTRAINT chk_total_amount CHECK (total_amount > 0),
@@ -225,6 +231,7 @@ CREATE TABLE order_items (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     order_id BIGINT NOT NULL COMMENT '주문 ID (논리적 참조: orders.id)',
     product_id BIGINT NOT NULL COMMENT '상품 ID (논리적 참조: products.id)',
+    product_name VARCHAR(200) NOT NULL COMMENT '주문 시점 상품명',
     quantity INT NOT NULL COMMENT '수량',
     unit_price BIGINT NOT NULL COMMENT '단가 (주문 시점 가격)',
     subtotal BIGINT NOT NULL COMMENT '소계',
@@ -251,6 +258,7 @@ CREATE TABLE order_items (
 CREATE TABLE coupons (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL COMMENT '쿠폰명',
+    discount_type VARCHAR(20) NOT NULL COMMENT '할인 타입: FIXED(정액), PERCENTAGE(정률)',
     discount_price BIGINT NULL COMMENT '할인 금액 (정액)',
     discount_rate DECIMAL(5,2) NULL COMMENT '할인율 (정률)',
     total_quantity INT NOT NULL COMMENT '총 발급 수량',
@@ -305,8 +313,8 @@ CREATE TABLE user_coupons (
 - **파티셔닝 고려**: 대용량 데이터 시 주문 테이블 월별 파티셔닝
 
 ### 3.2 확장 고려사항
-- **배송 정보**: Phase 2에서 배송지 테이블 추가 가능
-- **결제 수단**: Phase 2에서 다양한 결제 수단 추가 가능
-- **상품 옵션**: Phase 2에서 상품 옵션 테이블 추가 가능
-- **리뷰/평점**: Phase 2에서 리뷰 테이블 추가 가능
+- **배송 정보**: 배송지 테이블 추가 가능
+- **결제 수단**: 다양한 결제 수단 추가 가능
+- **상품 옵션**: 상품 옵션 테이블 추가 가능
+- **리뷰/평점**: 리뷰 테이블 추가 가능
 - **집계 요소**: 조회 수, 판매량을 별도의 테이블로 분리 가능
