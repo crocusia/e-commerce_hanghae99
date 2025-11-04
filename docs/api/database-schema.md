@@ -83,6 +83,9 @@ erDiagram
 		bigint price "가격 NOT NULL CHECK >= 0"  
 		text description "상세설명 nullable"  
 		int stock_qty "재고수량 NOT NULL DEFAULT 0 CHECK >= 0"  
+		bigint view_count "조회수 NOT NULL DEFAULT 0 CHECK >= 0"
+        int sales_count "판매량 NOT NULL DEFAULT 0 CHECK >= 0"
+        decimal popularity_score "인기점수 NOT NULL DEFAULT 0.0 CHECK >= 0"
 		varchar status "상태 NOT NULL DEFAULT ACTIVE"
 		timestamp deleted_at "삭제일시 nullable"
 		timestamp created_at "생성일시 NOT NULL"  
@@ -139,18 +142,28 @@ CREATE TABLE products (
     price BIGINT NOT NULL COMMENT '가격',
     description TEXT COMMENT '상세 설명',
     stock_qty INT NOT NULL DEFAULT 0 COMMENT '재고 수량',
+    view_count BIGINT NOT NULL DEFAULT 0 COMMENT '조회수',
+    sales_count INT NOT NULL DEFAULT 0 COMMENT '판매량',
+    popularity_score DECIMAL(10, 2) NOT NULL DEFAULT 0.0 COMMENT '인기점수',
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '상태: ACTIVE, INACTIVE, DELETED',
+    
     deleted_at TIMESTAMP NULL COMMENT '삭제일시',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
     INDEX idx_status (status),
     INDEX idx_status_stock (status, stock_qty),
+    INDEX idx_popularity_score (popularity_score DESC),
+    INDEX idx_status_popularity (status, popularity_score DESC),
     
     CONSTRAINT chk_price CHECK (price >= 0),
     CONSTRAINT chk_stock CHECK (stock_qty >= 0)
+    CONSTRAINT chk_view_count CHECK (view_count >= 0),
+    CONSTRAINT chk_sales_count CHECK (sales_count >= 0),
+    CONSTRAINT chk_popularity_score CHECK (popularity_score >= 0)
 ) COMMENT '상품';
 ```
+
 
 ### 2.7 장바구니 상품 (CartItem)
 ```sql
@@ -308,3 +321,4 @@ CREATE TABLE user_coupons (
 - **결제 수단**: Phase 2에서 다양한 결제 수단 추가 가능
 - **상품 옵션**: Phase 2에서 상품 옵션 테이블 추가 가능
 - **리뷰/평점**: Phase 2에서 리뷰 테이블 추가 가능
+- **집계 요소**: 조회 수, 판매량을 별도의 테이블로 분리 가능
