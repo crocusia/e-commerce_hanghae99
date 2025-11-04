@@ -16,47 +16,47 @@ erDiagram
 		varchar email "이메일 NOT NULL UNIQUE"  
 		bigint balance "잔액 NOT NULL DEFAULT 0 CHECK >= 0"  
 		varchar status "상태 NOT NULL DEFAULT ACTIVE"
-		timestamp deleted_at "삭제일시 nullable"
-		timestamp created_at "생성일시 NOT NULL"  
-		timestamp updated_at "수정일시 NOT NULL"  
+		datetime deleted_at "삭제일시 nullable"
+		datetime created_at "생성일시 NOT NULL"  
+		datetime updated_at "수정일시 NOT NULL"  
 	}
     CART_ITEM {
 		bigint cart_item_id PK "장바구니상품 ID"  
-		bigint user_id FK "고객 ID NOT NULL"  
-		bigint product_id FK "상품 ID NOT NULL"  
+		bigint user_id "고객 ID NOT NULL"  
+		bigint product_id "상품 ID NOT NULL"  
 		int quantity "수량 NOT NULL CHECK > 0"  
-		timestamp created_at "생성일시 NOT NULL"  
-		timestamp updated_at "수정일시 NOT NULL"  
+		datetime created_at "생성일시 NOT NULL"  
+		datetime updated_at "수정일시 NOT NULL"  
 	}
 	ORDER {
 		bigint order_id PK "주문 ID"  
-		bigint user_id FK "고객 ID NOT NULL"  
-		bigint user_coupon_id FK "사용된 쿠폰 ID nullable"
+		bigint user_id "고객 ID NOT NULL"  
+		bigint user_coupon_id "사용된 쿠폰 ID nullable"
 		bigint total_amount "총 주문금액 NOT NULL CHECK > 0"  
 		bigint discount_amount "할인 금액 NOT NULL DEFAULT 0 CHECK >= 0"  
 		bigint final_amount "최종 결제금액 NOT NULL CHECK >= 0"  
 		varchar status "주문 상태 NOT NULL DEFAULT PENDING"
-		timestamp created_at "생성일시 NOT NULL"  
-		timestamp updated_at "수정일시 NOT NULL"  
+		datetime created_at "생성일시 NOT NULL"  
+		datetime updated_at "수정일시 NOT NULL"  
 	}
 	ORDER_ITEM {
 		bigint order_item_id PK "주문상품 ID"  
-		bigint order_id FK "주문 ID NOT NULL"  
-		bigint product_id FK "상품 ID NOT NULL"  
+		bigint order_id "주문 ID NOT NULL"  
+		bigint product_id "상품 ID NOT NULL"  
 		varchar status "주문상품 상태 nullable"  
 		int quantity "수량 NOT NULL CHECK > 0"  
 		bigint unit_price "단가 NOT NULL CHECK >= 0"  
 		bigint subtotal "소계 NOT NULL CHECK >= 0"  
-		timestamp created_at "생성일시 NOT NULL"
-		timestamp updated_at "수정일시 NOT NULL"
+		datetime created_at "생성일시 NOT NULL"
+		datetime updated_at "수정일시 NOT NULL"
 	}
 	USER_COUPON {
 		bigint user_coupon_id PK "고객쿠폰 ID"  
-		bigint user_id FK "고객 ID NOT NULL"  
-		bigint coupon_id FK "쿠폰 ID NOT NULL"  
-		timestamp issued_at "발급일시 NOT NULL"  
-		timestamp used_at "사용일시 nullable"  
-		bigint order_id FK "사용된 주문 ID nullable"  
+		bigint user_id "고객 ID NOT NULL"  
+		bigint coupon_id "쿠폰 ID NOT NULL"  
+		datetime issued_at "발급일시 NOT NULL"  
+		datetime used_at "사용일시 nullable"  
+		bigint order_id "사용된 주문 ID nullable"  
 		varchar status "상태 NOT NULL DEFAULT UNUSED"  
 		string constraint "UNIQUE user_id coupon_id"
 	}
@@ -71,9 +71,9 @@ erDiagram
 		date valid_end "유효종료일 NOT NULL"  
 		bigint min_order_amount "최소주문금액 DEFAULT 0"  
 		varchar status "상태 NOT NULL DEFAULT ACTIVE"
-		timestamp deleted_at "삭제일시 nullable"
-		timestamp created_at "생성일시 NOT NULL"
-		timestamp updated_at "수정일시 NOT NULL"
+		datetime deleted_at "삭제일시 nullable"
+		datetime created_at "생성일시 NOT NULL"
+		datetime updated_at "수정일시 NOT NULL"
 		string constraint "CHECK issued_qty <= issue_qty"
 		string constraint "CHECK discount_price IS NOT NULL OR discount_rate IS NOT NULL"
 	}
@@ -87,9 +87,9 @@ erDiagram
         int sales_count "판매량 NOT NULL DEFAULT 0 CHECK >= 0"
         decimal popularity_score "인기점수 NOT NULL DEFAULT 0.0 CHECK >= 0"
 		varchar status "상태 NOT NULL DEFAULT ACTIVE"
-		timestamp deleted_at "삭제일시 nullable"
-		timestamp created_at "생성일시 NOT NULL"  
-		timestamp updated_at "수정일시 NOT NULL"  
+		datetime deleted_at "삭제일시 nullable"
+		datetime created_at "생성일시 NOT NULL"  
+		datetime updated_at "수정일시 NOT NULL"  
 	}
     USER ||--o{ ORDER : "places"
     USER ||--o{ USER_COUPON : "owns"
@@ -119,13 +119,13 @@ CREATE TABLE users (
     email VARCHAR(255) NOT NULL COMMENT '이메일',
     balance BIGINT NOT NULL DEFAULT 0 COMMENT '잔액',
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '상태: ACTIVE, INACTIVE, DELETED',
-    deleted_at TIMESTAMP NULL COMMENT '삭제일시',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+    deleted_at DATETIME NULL COMMENT '삭제일시',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
     UNIQUE INDEX idx_email (email),
     INDEX idx_status (status),
-    
+
     CONSTRAINT chk_balance CHECK (balance >= 0)
 ) COMMENT '사용자';
 ```
@@ -140,24 +140,24 @@ CREATE TABLE products (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL COMMENT '상품명',
     price BIGINT NOT NULL COMMENT '가격',
-    description TEXT COMMENT '상세 설명',
+    TEXT COMMENT '상세 설명',
     stock_qty INT NOT NULL DEFAULT 0 COMMENT '재고 수량',
-    view_count BIGINT NOT NULL DEFAULT 0 COMMENT '조회수',
+    BIGINT NOT NULL DEFAULT 0 COMMENT '조회수',
     sales_count INT NOT NULL DEFAULT 0 COMMENT '판매량',
-    popularity_score DECIMAL(10, 2) NOT NULL DEFAULT 0.0 COMMENT '인기점수',
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '상태: ACTIVE, INACTIVE, DELETED',
-    
-    deleted_at TIMESTAMP NULL COMMENT '삭제일시',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+    DECIMAL(10, 2) NOT NULL DEFAULT 0.0 COMMENT '인기점수',
+    VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '상태: ACTIVE, INACTIVE, DELETED',
+
+    deleted_at DATETIME NULL COMMENT '삭제일시',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
     INDEX idx_status (status),
     INDEX idx_status_stock (status, stock_qty),
     INDEX idx_popularity_score (popularity_score DESC),
     INDEX idx_status_popularity (status, popularity_score DESC),
-    
+
     CONSTRAINT chk_price CHECK (price >= 0),
-    CONSTRAINT chk_stock CHECK (stock_qty >= 0)
+    CONSTRAINT chk_stock CHECK (stock_qty >= 0),
     CONSTRAINT chk_view_count CHECK (view_count >= 0),
     CONSTRAINT chk_sales_count CHECK (sales_count >= 0),
     CONSTRAINT chk_popularity_score CHECK (popularity_score >= 0)
@@ -169,19 +169,16 @@ CREATE TABLE products (
 ```sql
 CREATE TABLE cart_items (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id BIGINT NOT NULL COMMENT '사용자 ID',
-    product_id BIGINT NOT NULL COMMENT '상품 ID',
+    user_id BIGINT NOT NULL COMMENT '사용자 ID (논리적 참조: users.id)',
+    product_id BIGINT NOT NULL COMMENT '상품 ID (논리적 참조: products.id)',
     quantity INT NOT NULL COMMENT '수량',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
     INDEX idx_user_id (user_id),
     INDEX idx_product_id (product_id),
-    
-    CONSTRAINT chk_quantity CHECK (quantity > 0),
-    
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (product_id) REFERENCES products(id)
+
+    CONSTRAINT chk_quantity CHECK (quantity > 0)
 ) COMMENT '장바구니 상품';
 ```
 ---
@@ -193,26 +190,23 @@ CREATE TABLE cart_items (
 ```sql
 CREATE TABLE orders (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id BIGINT NOT NULL COMMENT '사용자 ID',
-    user_coupon_id BIGINT NULL COMMENT '사용된 쿠폰 ID',
+    user_id BIGINT NOT NULL COMMENT '사용자 ID (논리적 참조: users.id)',
+    user_coupon_id BIGINT NULL COMMENT '사용된 쿠폰 ID (논리적 참조: user_coupons.id)',
     total_amount BIGINT NOT NULL COMMENT '총 주문 금액',
     discount_amount BIGINT NOT NULL DEFAULT 0 COMMENT '할인 금액',
     final_amount BIGINT NOT NULL COMMENT '최종 결제 금액',
-    status VARCHAR(30) NOT NULL DEFAULT 'PENDING' COMMENT '주문 상태',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+    status VARCHAR(30) NOT NULL DEFAULT 'PENDING' COMMENT '주문 상태: PENDING, PAYMENT_COMPLETED, CANCELLED',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
     INDEX idx_user_id (user_id),
     INDEX idx_status (status),
     INDEX idx_created_at (created_at DESC),
     INDEX idx_user_created (user_id, created_at DESC),
-    
+
     CONSTRAINT chk_total_amount CHECK (total_amount > 0),
     CONSTRAINT chk_discount_amount CHECK (discount_amount >= 0),
-    CONSTRAINT chk_final_amount CHECK (final_amount >= 0),
-    
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (user_coupon_id) REFERENCES user_coupons(id)
+    CONSTRAINT chk_final_amount CHECK (final_amount >= 0)
 ) COMMENT '주문';
 ```
 ---
@@ -229,24 +223,21 @@ CREATE TABLE orders (
 ```sql
 CREATE TABLE order_items (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    order_id BIGINT NOT NULL COMMENT '주문 ID',
-    product_id BIGINT NOT NULL COMMENT '상품 ID',
+    order_id BIGINT NOT NULL COMMENT '주문 ID (논리적 참조: orders.id)',
+    product_id BIGINT NOT NULL COMMENT '상품 ID (논리적 참조: products.id)',
     quantity INT NOT NULL COMMENT '수량',
     unit_price BIGINT NOT NULL COMMENT '단가 (주문 시점 가격)',
     subtotal BIGINT NOT NULL COMMENT '소계',
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '상태: ACTIVE, INACTIVE, DELETED',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+    status VARCHAR(20) NOT NULL DEFAULT 'ORDERED' COMMENT '상태: ORDERED, PREPARING, SHIPPED, DELIVERED, CANCELLED, RETURNED, EXCHANGED',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
     INDEX idx_order_id (order_id),
     INDEX idx_product_id (product_id),
-    
+
     CONSTRAINT chk_quantity CHECK (quantity > 0),
     CONSTRAINT chk_unit_price CHECK (unit_price >= 0),
-    CONSTRAINT chk_subtotal CHECK (subtotal >= 0),
-    
-    FOREIGN KEY (order_id) REFERENCES orders(id),
-    FOREIGN KEY (product_id) REFERENCES products(id)
+    CONSTRAINT chk_subtotal CHECK (subtotal >= 0)
 ) COMMENT '주문 상품';
 ```
 ---
@@ -268,16 +259,17 @@ CREATE TABLE coupons (
     valid_until DATE NOT NULL COMMENT '유효 종료일',
     min_order_amount BIGINT DEFAULT 0 COMMENT '최소 주문 금액',
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '상태: ACTIVE, INACTIVE, DELETED',
-    deleted_at TIMESTAMP NULL COMMENT '삭제일시',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
+    deleted_at DATETIME NULL COMMENT '삭제일시',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
     INDEX idx_status (status),
     INDEX idx_valid_period (valid_from, valid_until),
-    
+
     CONSTRAINT chk_total_quantity CHECK (total_quantity > 0),
     CONSTRAINT chk_issued_quantity CHECK (issued_quantity >= 0 AND issued_quantity <= total_quantity),
-    CONSTRAINT chk_valid_period CHECK (valid_from <= valid_until)
+    CONSTRAINT chk_valid_period CHECK (valid_from <= valid_until),
+    CONSTRAINT chk_discount CHECK (discount_price IS NOT NULL OR discount_rate IS NOT NULL)
 ) COMMENT '쿠폰';
 ```
 
@@ -290,22 +282,18 @@ CREATE TABLE coupons (
 ```sql
 CREATE TABLE user_coupons (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id BIGINT NOT NULL COMMENT '사용자 ID',
-    coupon_id BIGINT NOT NULL COMMENT '쿠폰 ID',
-    issued_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '발급 일시',
-    used_at TIMESTAMP NULL COMMENT '사용 일시',
-    order_id BIGINT NULL COMMENT '사용된 주문 ID',
+    user_id BIGINT NOT NULL COMMENT '사용자 ID (논리적 참조: users.id)',
+    coupon_id BIGINT NOT NULL COMMENT '쿠폰 ID (논리적 참조: coupons.id)',
+    issued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '발급 일시',
+    used_at DATETIME NULL COMMENT '사용 일시',
+    order_id BIGINT NULL COMMENT '사용된 주문 ID (논리적 참조: orders.id)',
     status VARCHAR(20) NOT NULL DEFAULT 'UNUSED' COMMENT '상태: UNUSED, USED, EXPIRED',
-    
+
     UNIQUE INDEX idx_user_coupon (user_id, coupon_id) COMMENT '1인 1매 정책',
     INDEX idx_user_id (user_id),
     INDEX idx_coupon_id (coupon_id),
     INDEX idx_status (status),
-    INDEX idx_user_status (user_id, status),
-    
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (coupon_id) REFERENCES coupons(id),
-    FOREIGN KEY (order_id) REFERENCES orders(id)
+    INDEX idx_user_status (user_id, status)
 ) COMMENT '사용자 쿠폰';
 ```
 
