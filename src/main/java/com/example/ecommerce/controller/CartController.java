@@ -4,7 +4,7 @@ import com.example.ecommerce.api.CartApi;
 import com.example.ecommerce.dto.cart.CartItemRequest;
 import com.example.ecommerce.dto.cart.CartItemResponse;
 import com.example.ecommerce.dto.cart.CartResponse;
-import com.example.ecommerce.dto.product.StockStatus;
+import com.example.ecommerce.product.domain.StockStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import java.util.List;

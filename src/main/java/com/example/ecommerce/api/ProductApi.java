@@ -2,7 +2,7 @@ package com.example.ecommerce.api;
 
 import com.example.ecommerce.dto.common.ErrorResponse;
 import com.example.ecommerce.dto.common.PageResponse;
-import com.example.ecommerce.dto.product.ProductResponse;
+import com.example.ecommerce.product.dto.ProductResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

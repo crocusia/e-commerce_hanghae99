@@ -1,6 +1,6 @@
 package com.example.ecommerce.dto.cart;
 
-import com.example.ecommerce.dto.product.StockStatus;
+import com.example.ecommerce.product.domain.StockStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "장바구니 상품 응답")

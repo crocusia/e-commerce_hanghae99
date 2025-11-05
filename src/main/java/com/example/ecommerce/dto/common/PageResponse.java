@@ -31,7 +31,6 @@ public record PageResponse<T>(
     @Schema(description = "비어있는 페이지 여부")
     boolean empty
 ) {
-    // Factory method from Spring Data Page
     public static <T> PageResponse<T> from(Page<T> page) {
         return new PageResponse<>(
             page.getContent(),
@@ -45,7 +44,6 @@ public record PageResponse<T>(
         );
     }
 
-    // Factory method for empty page
     public static <T> PageResponse<T> empty(int page, int size) {
         return new PageResponse<>(
             List.of(),
