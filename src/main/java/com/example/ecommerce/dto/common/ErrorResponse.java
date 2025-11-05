@@ -16,6 +16,6 @@ public record ErrorResponse(
     }
 
     public static ErrorResponse of(ErrorCode errorCode) {
-        return new ErrorResponse(errorCode.getCode(), errorCode.getMessage());
+        return new ErrorResponse(errorCode.getStatus().name(), errorCode.getMessage());
     }
 }

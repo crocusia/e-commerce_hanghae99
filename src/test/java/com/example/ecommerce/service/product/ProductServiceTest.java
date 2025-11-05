@@ -3,6 +3,7 @@ package com.example.ecommerce.service.product;
 import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.common.exception.ErrorCode;
 import com.example.ecommerce.product.domain.Product;
+import com.example.ecommerce.product.domain.Stock;
 import com.example.ecommerce.product.repository.ProductRepository;
 import com.example.ecommerce.product.domain.ProductStatus;
 import com.example.ecommerce.product.service.ProductService;
@@ -39,10 +40,10 @@ class ProductServiceTest {
     @DisplayName("고객은 판매중인 상품 목록을 페이징으로 조회할 수 있다")
     void getActiveProducts() {
         // given
-        Product activeProduct1 = Product.create("갤럭시", 2_000_000L, 10);
+        Product activeProduct1 = Product.create("상품1", 1000L, null, Stock.of(10).getQuantity());
         ReflectionTestUtils.setField(activeProduct1, "id", 1L);
 
-        Product activeProduct2 = Product.create("갤럭시탭", 1_500_000L, 20);
+        Product activeProduct2 = Product.create("상품2", 1500L, null, Stock.of(15).getQuantity());
         ReflectionTestUtils.setField(activeProduct2, "id", 2L);
 
         Pageable pageable = PageRequest.of(0, 10);
@@ -63,7 +64,7 @@ class ProductServiceTest {
     void getProductDetail() {
         // given
         Long productId = 1L;
-        Product product = Product.create("맥북 프로", 2_000_000L, 10);
+        Product product = Product.create("상품1", 1000L, null,Stock.of(10).getQuantity());
         ReflectionTestUtils.setField(product, "id", productId);
 
         when(productRepository.findByIdOrElseThrow(productId))
