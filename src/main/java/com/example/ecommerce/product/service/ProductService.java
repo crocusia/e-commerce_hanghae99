@@ -5,6 +5,9 @@ import com.example.ecommerce.product.domain.Product;
 import com.example.ecommerce.product.domain.ProductStatus;
 import com.example.ecommerce.product.repository.ProductRepository;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +22,35 @@ public class ProductService {
 
     private final ProductRepository productRepository;
 
+    @Schema(description = "상품 등록 요청")
+    public record ProductInPut(
+        @NotBlank(message = "상품명은 필수입니다")
+        @Schema(description = "상품명")
+        String name,
+
+        @NotNull(message = "가격은 필수입니다")
+        @Min(value = 0, message = "가격은 0 이상이어야 합니다")
+        @Schema(description = "가격")
+        Long price,
+
+        @NotNull(message = "재고는 필수입니다")
+        @Min(value = 0, message = "재고는 0 이상이어야 합니다")
+        @Schema(description = "재고")
+        Integer stock,
+
+        @Schema(description = "상세 설명")
+        String comment
+    ) {
+        public Product toEntity() {
+            return Product.builder()
+                .name(name)
+                .price(com.example.ecommerce.product.domain.Money.of(price))
+                .stock(com.example.ecommerce.product.domain.Stock.of(stock))
+                .comment(comment)
+                .build();
+        }
+    }
+
     @Schema(description = "상품 응답")
     public record ProductOutPut(
         @Schema(description = "상품 ID") Long id,
@@ -31,7 +63,7 @@ public class ProductService {
             return new ProductOutPut(
                 product.getId(),
                 product.getName(),
-                product.getPrice(),
+                product.getPrice().getAmount(),
                 product.getStockStatus(),
                 product.getCreatedAt()
             );
@@ -52,13 +84,20 @@ public class ProductService {
             return new ProductDetailOutPut(
                 product.getId(),
                 product.getName(),
-                product.getPrice(),
+                product.getPrice().getAmount(),
                 product.getComment(),
                 product.getStockStatus(),
-                product.getStock(),
+                product.getStock().getQuantity(),
                 product.getCreatedAt()
             );
         }
+    }
+
+    //편의를 위한 기능) 상품 등록
+    public ProductOutPut registerProduct(ProductInPut input) {
+        Product product = input.toEntity();
+        Product savedProduct = productRepository.save(product);
+        return ProductOutPut.from(savedProduct);
     }
 
     //기능 1) 판매 중인 상품 목록 조회 (고객용)

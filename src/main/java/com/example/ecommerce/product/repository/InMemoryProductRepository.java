@@ -47,4 +47,22 @@ public class InMemoryProductRepository implements ProductRepository {
     public Product findByIdOrElseThrow(Long id) {
         return findById(id).orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
     }
+
+    @Override
+    public Product save(Product product) {
+        Product savedProduct = product;
+
+        if (product.getId() == null) {
+            savedProduct = Product.builder()
+                .id(idGenerator.getAndIncrement())
+                .name(product.getName())
+                .price(product.getPrice())
+                .comment(product.getComment())
+                .stock(product.getStock())
+                .build();
+        }
+
+        store.put(savedProduct.getId(), savedProduct);
+        return savedProduct;
+    }
 }
