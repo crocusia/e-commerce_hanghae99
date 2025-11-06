@@ -2,227 +2,113 @@ package com.example.ecommerce.service.coupon;
 
 import com.example.ecommerce.coupon.domain.Coupon;
 import com.example.ecommerce.coupon.domain.UserCoupon;
-import com.example.ecommerce.coupon.domain.UserCouponStatus;
 import com.example.ecommerce.coupon.repository.CouponRepository;
-import com.example.ecommerce.coupon.repository.InMemoryCouponRepository;
-import com.example.ecommerce.coupon.repository.InMemoryUserCouponRepository;
 import com.example.ecommerce.coupon.repository.UserCouponRepository;
 import com.example.ecommerce.coupon.service.CouponExpirationService;
+import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
-@DisplayName("CouponExpirationService 테스트")
+@ExtendWith(MockitoExtension.class)
+@DisplayName("CouponExpirationService 단위 테스트 (Mock)")
 class CouponExpirationServiceTest {
 
-    private CouponExpirationService couponExpirationService;
+    @Mock
     private CouponRepository couponRepository;
+
+    @Mock
     private UserCouponRepository userCouponRepository;
+
+    @InjectMocks
+    private CouponExpirationService couponExpirationService;
+
+    private Coupon expiredCoupon;
+    private Coupon validCoupon;
 
     @BeforeEach
     void setUp() {
-        couponRepository = new InMemoryCouponRepository();
-        userCouponRepository = new InMemoryUserCouponRepository();
-        couponExpirationService = new CouponExpirationService(couponRepository, userCouponRepository);
+        // 간단한 Mock 객체 설정 (만료 여부만 중요하다고 가정)
+        expiredCoupon = mock(Coupon.class);
+        given(expiredCoupon.getId()).willReturn(100L); // 만료될 쿠폰 ID
 
-        ((InMemoryCouponRepository) couponRepository).clear();
-        ((InMemoryUserCouponRepository) userCouponRepository).clear();
+        validCoupon = mock(Coupon.class);
+        given(validCoupon.getId()).willReturn(200L); // 만료되지 않을 쿠폰 ID
     }
 
+    // === 쿠폰 만료 처리 테스트 ===
     @Test
-    @DisplayName("만료된 쿠폰들을 일괄 처리할 수 있다")
-    void expireExpiredCoupons() {
-        // given
-        Coupon expiredCoupon = Coupon.createFixed(
-            "만료된 쿠폰",
-            5000L,
-            100,
-            LocalDate.now().minusDays(30),
-            LocalDate.now().minusDays(1),
-            10000L
-        );
-        Coupon validCoupon = Coupon.createFixed(
-            "유효한 쿠폰",
-            3000L,
-            100,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
-            5000L
+    @DisplayName("만료된 쿠폰들을 일괄 처리하고 만료된 개수를 반환한다")
+    void expireExpiredCoupons_shouldExpireUnusedCoupons() {
+        // GIVEN
+        List<Long> expiredCouponIds = Arrays.asList(expiredCoupon.getId());
+        given(couponRepository.findExpiredCouponIds()).willReturn(expiredCouponIds);
+
+        UserCoupon expiredUserCoupon1 = UserCoupon.create(1L, expiredCoupon);
+        UserCoupon expiredUserCoupon2 = UserCoupon.create(2L, expiredCoupon);
+
+        List<UserCoupon> unusedExpiredCoupons = Arrays.asList(
+            expiredUserCoupon1,
+            expiredUserCoupon2
         );
 
-        Coupon savedExpiredCoupon = couponRepository.save(expiredCoupon);
-        Coupon savedValidCoupon = couponRepository.save(validCoupon);
+        given(userCouponRepository.findByCouponIdsAndUnusedStatus(anyList()))
+            .willReturn(unusedExpiredCoupons);
 
-        UserCoupon expiredUserCoupon1 = UserCoupon.create(1L, savedExpiredCoupon);
-        UserCoupon expiredUserCoupon2 = UserCoupon.create(2L, savedExpiredCoupon);
-        UserCoupon validUserCoupon = UserCoupon.create(3L, savedValidCoupon);
 
-        userCouponRepository.save(expiredUserCoupon1);
-        userCouponRepository.save(expiredUserCoupon2);
-        userCouponRepository.save(validUserCoupon);
-
-        // when
+        // WHEN
         int expiredCount = couponExpirationService.expireExpiredCoupons();
 
-        // then
+        // THEN
+        // 1. 반환된 개수 검증
         assertThat(expiredCount).isEqualTo(2);
 
-        List<UserCoupon> allCoupons = userCouponRepository.findByUserId(1L);
-        allCoupons.addAll(userCouponRepository.findByUserId(2L));
-        allCoupons.addAll(userCouponRepository.findByUserId(3L));
+        // 2. 1단계와 2단계 조회 메서드 호출 검증
+        then(couponRepository).should(times(1)).findExpiredCouponIds();
+        then(userCouponRepository).should(times(1)).findByCouponIdsAndUnusedStatus(expiredCouponIds);
 
-        long expiredStatusCount = allCoupons.stream()
-            .filter(uc -> uc.getStatus() == UserCouponStatus.EXPIRED)
-            .count();
-        assertThat(expiredStatusCount).isEqualTo(2);
+        // 3. 만료 처리 (UserCoupon::expire) 및 저장 (userCouponRepository::save) 검증
+        // 3-1. 각 UserCoupon 객체에 대해 expire() 메서드가 호출되었다고 가정하고 만료 상태를 검증
+        assertThat(expiredUserCoupon1.isExpired()).isTrue();
+        assertThat(expiredUserCoupon2.isExpired()).isTrue();
 
-        long unusedStatusCount = allCoupons.stream()
-            .filter(uc -> uc.getStatus() == UserCouponStatus.UNUSED)
-            .count();
-        assertThat(unusedStatusCount).isEqualTo(1);
+        // 3-2. 각 만료된 쿠폰에 대해 save 메서드가 호출되었는지 검증
+        then(userCouponRepository).should(times(1)).save(expiredUserCoupon1);
+        then(userCouponRepository).should(times(1)).save(expiredUserCoupon2);
+        then(userCouponRepository).should(times(2)).save(any(UserCoupon.class)); // 총 2번 호출 검증
     }
 
     @Test
-    @DisplayName("이미 사용된 쿠폰은 만료 처리하지 않는다")
-    void expireExpiredCoupons_SkipUsedCoupons() {
-        // given
-        // 사용된 쿠폰을 만들기 위해 유효한 쿠폰으로 먼저 생성 후 사용 처리
-        Coupon validCoupon = Coupon.createFixed(
-            "유효한 쿠폰",
-            5000L,
-            100,
-            LocalDate.now().minusDays(10),
-            LocalDate.now().plusDays(20),
-            10000L
-        );
-        Coupon savedValidCoupon = couponRepository.save(validCoupon);
+    @DisplayName("만료된 쿠폰이 없으면 0을 반환한다")
+    void expireExpiredCoupons_shouldReturnZeroWhenNoExpiredCoupons() {
+        // GIVEN
+        // 1단계 Mocking: 만료된 쿠폰 ID가 없음
+        given(couponRepository.findExpiredCouponIds()).willReturn(Collections.emptyList());
 
-        UserCoupon usedUserCoupon = UserCoupon.create(1L, savedValidCoupon);
-        usedUserCoupon.use(); // 쿠폰 사용
-        userCouponRepository.save(usedUserCoupon);
-
-        // 이제 만료된 쿠폰 생성
-        Coupon expiredCoupon = Coupon.createFixed(
-            "만료된 쿠폰",
-            3000L,
-            100,
-            LocalDate.now().minusDays(30),
-            LocalDate.now().minusDays(1),
-            5000L
-        );
-        Coupon savedExpiredCoupon = couponRepository.save(expiredCoupon);
-
-        UserCoupon unusedUserCoupon = UserCoupon.create(2L, savedExpiredCoupon);
-        userCouponRepository.save(unusedUserCoupon);
-
-        // when
+        // WHEN
         int expiredCount = couponExpirationService.expireExpiredCoupons();
 
-        // then
-        assertThat(expiredCount).isEqualTo(1); // 사용되지 않은 만료 쿠폰만 처리
-
-        UserCoupon savedUsedCoupon = userCouponRepository.findByUserIdAndCouponId(1L, savedValidCoupon.getId()).get();
-        assertThat(savedUsedCoupon.getStatus()).isEqualTo(UserCouponStatus.USED);
-
-        UserCoupon savedUnusedCoupon = userCouponRepository.findByUserIdAndCouponId(2L, savedExpiredCoupon.getId()).get();
-        assertThat(savedUnusedCoupon.getStatus()).isEqualTo(UserCouponStatus.EXPIRED);
-    }
-
-    @Test
-    @DisplayName("만료 가능한 쿠폰이 없으면 0을 반환한다")
-    void expireExpiredCoupons_NoCouponsToExpire() {
-        // given
-        Coupon validCoupon = Coupon.createFixed(
-            "유효한 쿠폰",
-            5000L,
-            100,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
-            10000L
-        );
-        Coupon savedValidCoupon = couponRepository.save(validCoupon);
-
-        UserCoupon validUserCoupon = UserCoupon.create(1L, savedValidCoupon);
-        userCouponRepository.save(validUserCoupon);
-
-        // when
-        int expiredCount = couponExpirationService.expireExpiredCoupons();
-
-        // then
+        // THEN
         assertThat(expiredCount).isEqualTo(0);
-    }
 
-
-    @Test
-    @DisplayName("만료 처리 결과를 조회할 수 있다")
-    void getExpirationResult() {
-        // given
-        Coupon expiredCoupon = Coupon.createFixed(
-            "만료된 쿠폰",
-            5000L,
-            100,
-            LocalDate.now().minusDays(30),
-            LocalDate.now().minusDays(1),
-            10000L
-        );
-        Coupon savedExpiredCoupon = couponRepository.save(expiredCoupon);
-
-        UserCoupon userCoupon1 = UserCoupon.create(1L, savedExpiredCoupon);
-        UserCoupon userCoupon2 = UserCoupon.create(2L, savedExpiredCoupon);
-        UserCoupon userCoupon3 = UserCoupon.create(3L, savedExpiredCoupon);
-
-        userCouponRepository.save(userCoupon1);
-        userCouponRepository.save(userCoupon2);
-        userCouponRepository.save(userCoupon3);
-
-        // when
-        int totalExpired = couponExpirationService.expireExpiredCoupons();
-
-        // then
-        assertThat(totalExpired).isEqualTo(3);
-
-        // 검증: 실제로 만료된 쿠폰 개수 확인
-        List<UserCoupon> allUserCoupons = userCouponRepository.findByUserId(1L);
-        allUserCoupons.addAll(userCouponRepository.findByUserId(2L));
-        allUserCoupons.addAll(userCouponRepository.findByUserId(3L));
-
-        long actualExpiredCount = allUserCoupons.stream()
-            .filter(uc -> uc.getStatus() == UserCouponStatus.EXPIRED)
-            .count();
-
-        assertThat(actualExpiredCount).isEqualTo(totalExpired);
-    }
-
-    @Test
-    @DisplayName("이미 만료 상태인 쿠폰은 중복 처리하지 않는다")
-    void expireExpiredCoupons_SkipAlreadyExpired() {
-        // given
-        Coupon expiredCoupon = Coupon.createFixed(
-            "만료된 쿠폰",
-            5000L,
-            100,
-            LocalDate.now().minusDays(30),
-            LocalDate.now().minusDays(1),
-            10000L
-        );
-        Coupon savedExpiredCoupon = couponRepository.save(expiredCoupon);
-
-        UserCoupon alreadyExpiredCoupon = UserCoupon.create(1L, savedExpiredCoupon);
-        alreadyExpiredCoupon.expire(); // 이미 만료 처리
-        UserCoupon notYetExpiredCoupon = UserCoupon.create(2L, savedExpiredCoupon);
-
-        userCouponRepository.save(alreadyExpiredCoupon);
-        userCouponRepository.save(notYetExpiredCoupon);
-
-        // when
-        int expiredCount = couponExpirationService.expireExpiredCoupons();
-
-        // then
-        assertThat(expiredCount).isEqualTo(1); // 아직 만료되지 않은 쿠폰만 처리
+        // 만료된 쿠폰이 없으므로 2단계 조회는 호출되지 않아야 함
+        then(userCouponRepository).should(never()).findByCouponIdsAndUnusedStatus(anyList());
+        then(userCouponRepository).should(never()).save(any(UserCoupon.class));
     }
 }

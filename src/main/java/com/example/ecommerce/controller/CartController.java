@@ -1,6 +1,5 @@
 package com.example.ecommerce.controller;
 
-import com.example.ecommerce.api.CartApi;
 import com.example.ecommerce.dto.cart.CartItemRequest;
 import com.example.ecommerce.dto.cart.CartItemResponse;
 import com.example.ecommerce.dto.cart.CartResponse;
@@ -15,9 +14,8 @@ import org.springframework.web.bind.annotation.*;
 @Validated
 @RestController
 @RequestMapping("/api/carts")
-public class CartController implements CartApi {
+public class CartController {
 
-    @Override
     public ResponseEntity<CartResponse> getCart(
         @PathVariable @Positive Long userId
     ) {
@@ -34,7 +32,6 @@ public class CartController implements CartApi {
         return ResponseEntity.ok(response);
     }
 
-    @Override
     public ResponseEntity<CartItemResponse> addCartItem(
         @PathVariable @Positive Long userId,
         @RequestBody @Valid CartItemRequest request
@@ -54,7 +51,6 @@ public class CartController implements CartApi {
         return ResponseEntity.ok(response);
     }
 
-    @Override
     public ResponseEntity<CartItemResponse> updateCartItemQuantity(
         @PathVariable @Positive Long userId,
         @PathVariable @Positive Long cartItemId,
@@ -75,7 +71,6 @@ public class CartController implements CartApi {
         return ResponseEntity.ok(response);
     }
 
-    @Override
     public ResponseEntity<Void> deleteCartItem(
         @PathVariable @Positive Long userId,
         @PathVariable @Positive Long cartItemId
@@ -84,7 +79,6 @@ public class CartController implements CartApi {
         return ResponseEntity.noContent().build();
     }
 
-    @Override
     public ResponseEntity<Void> clearCart(
         @PathVariable @Positive Long userId
     ) {

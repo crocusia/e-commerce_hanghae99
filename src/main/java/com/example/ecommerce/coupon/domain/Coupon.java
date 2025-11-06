@@ -65,7 +65,7 @@ public class Coupon {
     }
 
     // 쿠폰 발급
-    public synchronized void issue() {
+    public void issue() {
         if (!canIssue()) {
             throw new CustomException(ErrorCode.COUPON_NOT_AVAILABLE);
         }
