@@ -6,6 +6,9 @@ import com.example.ecommerce.coupon.domain.Coupon;
 import com.example.ecommerce.coupon.domain.UserCoupon;
 import com.example.ecommerce.coupon.repository.CouponRepository;
 import com.example.ecommerce.coupon.repository.UserCouponRepository;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -19,25 +22,37 @@ public class CouponService {
     private final CouponRepository couponRepository;
     private final UserCouponRepository userCouponRepository;
 
+    private final Map<Long, ReentrantLock> couponLocks = new ConcurrentHashMap<>();
     /**
      * 선착순 쿠폰 발급 (1인 1매, 동시성 제어)
      */
-    public synchronized UserCoupon issueCoupon(Long userId, Long couponId) {
-        // 1. 쿠폰 조회
-        Coupon coupon = couponRepository.findByIdOrElseThrow(couponId);
+    public UserCoupon issueCoupon(Long userId, Long couponId) {
+        // 1. 락 획득
+        ReentrantLock lock = couponLocks.computeIfAbsent(couponId, k -> new ReentrantLock());
+        lock.lock();
 
-        // 2. 중복 발급 체크 (1인 1매)
-        if (userCouponRepository.existsByUserIdAndCouponId(userId, couponId)) {
-            throw new CustomException(ErrorCode.COUPON_ALREADY_USED);
+        try {
+            // 2. 쿠폰 조회 (순수 데이터 접근)
+            Coupon coupon = couponRepository.findById(couponId)
+                .orElseThrow(() -> new CustomException(ErrorCode.COUPON_NOT_FOUND));
+
+            // 3. 중복 발급 체크
+            if (userCouponRepository.existsByUserIdAndCouponId(userId, couponId)) {
+                throw new CustomException(ErrorCode.COUPON_ALREADY_USED);
+            }
+
+            // 4. 쿠폰 발급
+            coupon.issue();
+            couponRepository.save(coupon);
+
+            // 5. 사용자 쿠폰 생성
+            UserCoupon userCoupon = UserCoupon.create(userId, coupon);
+            return userCouponRepository.save(userCoupon);
+
+        } finally {
+            // 6. 락 해제 (항상 실행)
+            lock.unlock();
         }
-
-        // 3. 쿠폰 발급 (수량 체크, 유효기간 체크, 상태 체크 포함)
-        coupon.issue();
-        couponRepository.save(coupon);
-
-        // 4. 사용자 쿠폰 생성
-        UserCoupon userCoupon = UserCoupon.create(userId, coupon);
-        return userCouponRepository.save(userCoupon);
     }
 
     /**
