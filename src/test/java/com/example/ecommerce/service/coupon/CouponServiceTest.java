@@ -1,170 +1,243 @@
 package com.example.ecommerce.service.coupon;
 
 import com.example.ecommerce.common.exception.CustomException;
+import com.example.ecommerce.common.exception.ErrorCode;
 import com.example.ecommerce.coupon.domain.Coupon;
-import com.example.ecommerce.coupon.domain.UserCoupon;
 import com.example.ecommerce.coupon.repository.CouponRepository;
-import com.example.ecommerce.coupon.repository.InMemoryCouponRepository;
-import com.example.ecommerce.coupon.repository.InMemoryUserCouponRepository;
-import com.example.ecommerce.coupon.repository.UserCouponRepository;
 import com.example.ecommerce.coupon.service.CouponService;
+import com.example.ecommerce.coupon.service.CouponService.CouponDetailOutput;
+import com.example.ecommerce.coupon.service.CouponService.CouponOutput;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
-@DisplayName("CouponService 테스트")
+@ExtendWith(MockitoExtension.class)
+@DisplayName("CouponService 단위 테스트 (Mock)")
 class CouponServiceTest {
 
-    private CouponService couponService;
+    @Mock
     private CouponRepository couponRepository;
-    private UserCouponRepository userCouponRepository;
+
+    @InjectMocks
+    private CouponService couponService;
+
+    private Coupon testCoupon;
+    private Long testCouponId;
 
     @BeforeEach
     void setUp() {
-        couponRepository = new InMemoryCouponRepository();
-        userCouponRepository = new InMemoryUserCouponRepository();
-        couponService = new CouponService(couponRepository, userCouponRepository);
-
-        ((InMemoryCouponRepository) couponRepository).clear();
-        ((InMemoryUserCouponRepository) userCouponRepository).clear();
+        testCouponId = 1L;
+        testCoupon = createTestCoupon("테스트 쿠폰", 5000L, 100);
+        setId(testCoupon, testCouponId);
     }
 
-    @Test
-    @DisplayName("쿠폰을 발급받을 수 있다")
-    void issueCoupon() {
-        // given
-        Coupon coupon = Coupon.createFixed(
-            "5000원 할인 쿠폰",
-            5000L,
-            100,
+    // === 헬퍼 메서드 ===
+
+    private Coupon createTestCoupon(String name, Long discountPrice, int quantity) {
+        return Coupon.createFixed(
+            name,
+            discountPrice,
+            quantity,
             LocalDate.now(),
             LocalDate.now().plusDays(30),
             10000L
         );
-        Coupon savedCoupon = couponRepository.save(coupon);
-        Long userId = 1L;
-
-        // when
-        UserCoupon userCoupon = couponService.issueCoupon(userId, savedCoupon.getId());
-
-        // then
-        assertThat(userCoupon).isNotNull();
-        assertThat(userCoupon.getUserId()).isEqualTo(userId);
-        assertThat(userCoupon.getCoupon().getId()).isEqualTo(savedCoupon.getId());
     }
 
-    @Test
-    @DisplayName("한 사용자는 같은 쿠폰을 한 번만 발급받을 수 있다 (1인 1매)")
-    void issueCoupon_OnePerUser() {
-        // given
-        Coupon coupon = Coupon.createFixed(
-            "5000원 할인 쿠폰",
-            5000L,
-            100,
+    private Coupon createPercentageCoupon(String name, Double discountRate, int quantity) {
+        return Coupon.createPercentage(
+            name,
+            discountRate,
+            quantity,
             LocalDate.now(),
             LocalDate.now().plusDays(30),
             10000L
         );
-        Coupon savedCoupon = couponRepository.save(coupon);
-        Long userId = 1L;
-
-        // when
-        couponService.issueCoupon(userId, savedCoupon.getId());
-
-        // then - 같은 사용자가 다시 발급 시도하면 예외 발생
-        assertThrows(CustomException.class, () ->
-            couponService.issueCoupon(userId, savedCoupon.getId())
-        );
     }
 
-    @Test
-    @DisplayName("수량이 소진된 쿠폰은 발급할 수 없다")
-    void issueCoupon_Exhausted() {
-        // given
-        Coupon coupon = Coupon.createFixed(
-            "선착순 쿠폰",
-            5000L,
-            2,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
-            10000L
-        );
-        Coupon savedCoupon = couponRepository.save(coupon);
-
-        // when
-        couponService.issueCoupon(1L, savedCoupon.getId());
-        couponService.issueCoupon(2L, savedCoupon.getId());
-
-        // then
-        assertThrows(CustomException.class, () ->
-            couponService.issueCoupon(3L, savedCoupon.getId())
-        );
-    }
-
-    @Test
-    @DisplayName("동시에 100명이 선착순 쿠폰 발급을 시도해도 정확히 100개만 발급된다")
-    void issueCoupon_Concurrency() throws InterruptedException {
-        // given
-        Coupon coupon = Coupon.createFixed(
-            "선착순 100개 한정 쿠폰",
-            5000L,
-            100,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
-            10000L
-        );
-        Coupon savedCoupon = couponRepository.save(coupon);
-
-        int threadCount = 200;
-        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-        CountDownLatch latch = new CountDownLatch(threadCount);
-        AtomicInteger successCount = new AtomicInteger(0);
-        AtomicInteger failCount = new AtomicInteger(0);
-
-        // when - 200명이 동시에 발급 시도
-        for (int i = 1; i <= threadCount; i++) {
-            final long userId = i;
-            executorService.submit(() -> {
-                try {
-                    couponService.issueCoupon(userId, savedCoupon.getId());
-                    successCount.incrementAndGet();
-                } catch (Exception e) {
-                    failCount.incrementAndGet();
-                } finally {
-                    latch.countDown();
-                }
-            });
+    private void setId(Object entity, Long id) {
+        try {
+            var idField = entity.getClass().getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(entity, id);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
+    }
 
-        latch.await();
-        executorService.shutdown();
+    // === 쿠폰 목록 조회 테스트 ===
 
-        // then - 정확히 100개만 발급되어야 함
-        assertThat(successCount.get()).isEqualTo(100);
-        assertThat(failCount.get()).isEqualTo(100);
+    @Test
+    @DisplayName("전체 쿠폰 목록을 조회할 수 있다")
+    void getAllCoupons() {
+        // given
+        Coupon coupon1 = createTestCoupon("쿠폰1", 5000L, 100);
+        Coupon coupon2 = createTestCoupon("쿠폰2", 3000L, 50);
+        Coupon coupon3 = createPercentageCoupon("쿠폰3", 10.0, 200);
 
-        // 쿠폰의 발급 수량도 100개여야 함
-        Coupon issuedCoupon = couponRepository.findById(savedCoupon.getId()).get();
-        assertThat(issuedCoupon.getIssuedQuantity()).isEqualTo(100);
-        assertThat(issuedCoupon.canIssue()).isFalse();
+        List<Coupon> coupons = Arrays.asList(coupon1, coupon2, coupon3);
+        given(couponRepository.findAll()).willReturn(coupons);
+
+        // when
+        List<CouponOutput> result = couponService.getAllCoupons();
+
+        // then
+        assertThat(result).hasSize(3);
+        assertThat(result.get(0).name()).isEqualTo("쿠폰1");
+        assertThat(result.get(1).name()).isEqualTo("쿠폰2");
+        assertThat(result.get(2).name()).isEqualTo("쿠폰3");
+
+        then(couponRepository).should().findAll();
     }
 
     @Test
-    @DisplayName("만료된 쿠폰은 발급할 수 없다")
-    void issueCoupon_Expired() {
+    @DisplayName("쿠폰 목록이 비어있으면 빈 리스트를 반환한다")
+    void getAllCoupons_Empty() {
         // given
-        Coupon coupon = Coupon.createFixed(
+        given(couponRepository.findAll()).willReturn(List.of());
+
+        // when
+        List<CouponOutput> result = couponService.getAllCoupons();
+
+        // then
+        assertThat(result).isEmpty();
+        then(couponRepository).should().findAll();
+    }
+
+    @Test
+    @DisplayName("쿠폰 목록 조회 시 남은 수량이 정확히 계산된다")
+    void getAllCoupons_RemainingQuantity() {
+        // given
+        Coupon coupon = createTestCoupon("테스트 쿠폰", 5000L, 10);
+        // 3개 발급
+        coupon.issue();
+        coupon.issue();
+        coupon.issue();
+
+        given(couponRepository.findAll()).willReturn(List.of(coupon));
+
+        // when
+        List<CouponOutput> result = couponService.getAllCoupons();
+
+        // then
+        assertThat(result).hasSize(1);
+        CouponOutput output = result.get(0);
+        assertThat(output.totalQuantity()).isEqualTo(10);
+        assertThat(output.issuedQuantity()).isEqualTo(3);
+        assertThat(output.remainingQuantity()).isEqualTo(7);
+    }
+
+    // === 쿠폰 상세 조회 테스트 ===
+
+    @Test
+    @DisplayName("쿠폰 상세 정보를 조회할 수 있다")
+    void getCoupon() {
+        // given
+        given(couponRepository.findByIdOrElseThrow(testCouponId)).willReturn(testCoupon);
+
+        // when
+        CouponDetailOutput result = couponService.getCoupon(testCouponId);
+
+        // then
+        assertThat(result).isNotNull();
+        assertThat(result.id()).isEqualTo(testCouponId);
+        assertThat(result.name()).isEqualTo("테스트 쿠폰");
+        assertThat(result.discountPrice()).isEqualTo(5000L);
+        assertThat(result.totalQuantity()).isEqualTo(100);
+        assertThat(result.issuedQuantity()).isEqualTo(0);
+        assertThat(result.remainingQuantity()).isEqualTo(100);
+        assertThat(result.canIssue()).isTrue();
+        assertThat(result.isValid()).isTrue();
+
+        then(couponRepository).should().findByIdOrElseThrow(testCouponId);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 쿠폰 조회 시 예외 발생")
+    void getCoupon_NotFound() {
+        // given
+        given(couponRepository.findByIdOrElseThrow(testCouponId))
+            .willThrow(new CustomException(ErrorCode.COUPON_NOT_FOUND));
+
+        // when & then
+        assertThatThrownBy(() -> couponService.getCoupon(testCouponId))
+            .isInstanceOf(CustomException.class)
+            .hasMessageContaining(ErrorCode.COUPON_NOT_FOUND.getMessage());
+
+        then(couponRepository).should().findByIdOrElseThrow(testCouponId);
+    }
+
+    @Test
+    @DisplayName("정액 할인 쿠폰 정보를 정확히 조회한다")
+    void getCoupon_FixedDiscount() {
+        // given
+        Coupon fixedCoupon = createTestCoupon("정액 할인 쿠폰", 5000L, 100);
+        setId(fixedCoupon, testCouponId);
+
+        given(couponRepository.findByIdOrElseThrow(testCouponId)).willReturn(fixedCoupon);
+
+        // when
+        CouponDetailOutput result = couponService.getCoupon(testCouponId);
+
+        // then
+        assertThat(result.discountPrice()).isEqualTo(5000L);
+        assertThat(result.discountRate()).isNull();
+    }
+
+    @Test
+    @DisplayName("정율 할인 쿠폰 정보를 정확히 조회한다")
+    void getCoupon_PercentageDiscount() {
+        // given
+        Coupon percentageCoupon = createPercentageCoupon("정율 할인 쿠폰", 10.0, 100);
+        setId(percentageCoupon, testCouponId);
+
+        given(couponRepository.findByIdOrElseThrow(testCouponId)).willReturn(percentageCoupon);
+
+        // when
+        CouponDetailOutput result = couponService.getCoupon(testCouponId);
+
+        // then
+        assertThat(result.discountPrice()).isNull();
+        assertThat(result.discountRate()).isEqualTo(10.0);
+    }
+
+    @Test
+    @DisplayName("발급 완료된 쿠폰의 발급 가능 여부를 확인할 수 있다")
+    void getCoupon_IssuedCoupon() {
+        // given
+        Coupon coupon = createTestCoupon("소진 쿠폰", 5000L, 1);
+        coupon.issue(); // 수량 소진
+        setId(coupon, testCouponId);
+
+        given(couponRepository.findByIdOrElseThrow(testCouponId)).willReturn(coupon);
+
+        // when
+        CouponDetailOutput result = couponService.getCoupon(testCouponId);
+
+        // then
+        assertThat(result.issuedQuantity()).isEqualTo(1);
+        assertThat(result.remainingQuantity()).isEqualTo(0);
+        assertThat(result.canIssue()).isFalse();
+    }
+
+    @Test
+    @DisplayName("만료된 쿠폰의 유효성을 확인할 수 있다")
+    void getCoupon_ExpiredCoupon() {
+        // given
+        Coupon expiredCoupon = Coupon.createFixed(
             "만료된 쿠폰",
             5000L,
             100,
@@ -172,82 +245,29 @@ class CouponServiceTest {
             LocalDate.now().minusDays(1),
             10000L
         );
-        Coupon savedCoupon = couponRepository.save(coupon);
+        setId(expiredCoupon, testCouponId);
 
-        // when & then
-        assertThrows(CustomException.class, () ->
-            couponService.issueCoupon(1L, savedCoupon.getId())
-        );
-    }
-
-    @Test
-    @DisplayName("비활성 쿠폰은 발급할 수 없다")
-    void issueCoupon_Inactive() {
-        // given
-        Coupon coupon = Coupon.createFixed(
-            "비활성 쿠폰",
-            5000L,
-            100,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
-            10000L
-        );
-        Coupon savedCoupon = couponRepository.save(coupon);
-        savedCoupon.deactivate();
-        couponRepository.save(savedCoupon);
-
-        // when & then
-        assertThrows(CustomException.class, () ->
-            couponService.issueCoupon(1L, savedCoupon.getId())
-        );
-    }
-
-    @Test
-    @DisplayName("사용자의 쿠폰 목록을 조회할 수 있다")
-    void getUserCoupons() {
-        // given
-        Coupon coupon1 = Coupon.createFixed("쿠폰1", 5000L, 100,
-            LocalDate.now(), LocalDate.now().plusDays(30), 10000L);
-        Coupon coupon2 = Coupon.createFixed("쿠폰2", 3000L, 100,
-            LocalDate.now(), LocalDate.now().plusDays(30), 5000L);
-
-        Coupon savedCoupon1 = couponRepository.save(coupon1);
-        Coupon savedCoupon2 = couponRepository.save(coupon2);
-
-        Long userId = 1L;
-        couponService.issueCoupon(userId, savedCoupon1.getId());
-        couponService.issueCoupon(userId, savedCoupon2.getId());
+        given(couponRepository.findByIdOrElseThrow(testCouponId)).willReturn(expiredCoupon);
 
         // when
-        List<UserCoupon> userCoupons = couponService.getUserCoupons(userId);
+        CouponDetailOutput result = couponService.getCoupon(testCouponId);
 
         // then
-        assertThat(userCoupons).hasSize(2);
+        assertThat(result.isValid()).isFalse();
+        assertThat(result.canIssue()).isFalse();
     }
 
     @Test
-    @DisplayName("사용 가능한 쿠폰 목록만 조회할 수 있다")
-    void getAvailableUserCoupons() {
+    @DisplayName("비활성 쿠폰 상태를 확인할 수 있다")
+    void getCoupon_InactiveCoupon() {
         // given
-        Coupon validCoupon = Coupon.createFixed("유효한 쿠폰", 5000L, 100,
-            LocalDate.now(), LocalDate.now().plusDays(30), 10000L);
-        Coupon expiredCoupon = Coupon.createFixed("만료된 쿠폰", 3000L, 100,
-            LocalDate.now().minusDays(30), LocalDate.now().minusDays(1), 5000L);
-
-        Coupon savedValidCoupon = couponRepository.save(validCoupon);
-        Coupon savedExpiredCoupon = couponRepository.save(expiredCoupon);
-
-        Long userId = 1L;
-        couponService.issueCoupon(userId, savedValidCoupon.getId());
-
-        UserCoupon expiredUserCoupon = UserCoupon.create(userId, savedExpiredCoupon);
-        userCouponRepository.save(expiredUserCoupon);
+        testCoupon.deactivate();
+        given(couponRepository.findByIdOrElseThrow(testCouponId)).willReturn(testCoupon);
 
         // when
-        List<UserCoupon> availableCoupons = couponService.getAvailableUserCoupons(userId);
+        CouponDetailOutput result = couponService.getCoupon(testCouponId);
 
         // then
-        assertThat(availableCoupons).hasSize(1);
-        assertThat(availableCoupons.get(0).getCoupon().getName()).isEqualTo("유효한 쿠폰");
+        assertThat(result.status().name()).isEqualTo("INACTIVE");
     }
 }
