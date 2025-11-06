@@ -49,6 +49,10 @@ public class Money {
         return this.amount < other.amount;
     }
 
+    public boolean isLessThanOrEqual(Money other) {
+        return this.amount <= other.amount;
+    }
+
     public long getAmount() {
         return amount;
     }
