@@ -16,34 +16,23 @@ public class Coupon {
 
     private Long id;
     private String name;
-    private DiscountType discountType;
-    private Money discountPrice;    // 정액 할인 금액
-    private Double discountRate;    // 정률 할인율
-    private int totalQuantity;      // 총 발급 수량
-    private int issuedQuantity;     // 현재 발급된 수량
-    private LocalDate validFrom;    // 유효 시작일
-    private LocalDate validUntil;   // 유효 종료일
-    private Money minOrderAmount;   // 최소 주문 금액
+    private DiscountValue discountValue;    // 할인 값 (타입 + 금액/비율)
+    private CouponQuantity quantity;        // 쿠폰 수량 (총 수량 + 발급 수량)
+    private ValidPeriod validPeriod;        // 유효 기간
+    private Money minOrderAmount;           // 최소 주문 금액
     private CouponStatus status;
     private LocalDateTime deletedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    private Coupon(String name, DiscountType discountType, Money discountPrice, Double discountRate,
-                   int totalQuantity, LocalDate validFrom, LocalDate validUntil, Money minOrderAmount) {
+    private Coupon(String name, DiscountValue discountValue, CouponQuantity quantity,
+                   ValidPeriod validPeriod, Money minOrderAmount) {
         validateName(name);
-        validateQuantity(totalQuantity);
-        validateValidPeriod(validFrom, validUntil);
-        validateDiscount(discountType, discountPrice, discountRate);
 
         this.name = name;
-        this.discountType = discountType;
-        this.discountPrice = discountPrice;
-        this.discountRate = discountRate;
-        this.totalQuantity = totalQuantity;
-        this.issuedQuantity = 0;
-        this.validFrom = validFrom;
-        this.validUntil = validUntil;
+        this.discountValue = discountValue;
+        this.quantity = quantity;
+        this.validPeriod = validPeriod;
         this.minOrderAmount = minOrderAmount;
         this.status = CouponStatus.ACTIVE;
         this.deletedAt = null;
@@ -56,12 +45,9 @@ public class Coupon {
                                      LocalDate validFrom, LocalDate validUntil, Long minOrderAmount) {
         return new Coupon(
             name,
-            DiscountType.FIXED,
-            Money.of(discountPrice),
-            null,
-            totalQuantity,
-            validFrom,
-            validUntil,
+            DiscountValue.fixed(Money.of(discountPrice)),
+            CouponQuantity.of(totalQuantity),
+            ValidPeriod.of(validFrom, validUntil),
             Money.of(minOrderAmount)
         );
     }
@@ -71,12 +57,9 @@ public class Coupon {
                                          LocalDate validFrom, LocalDate validUntil, Long minOrderAmount) {
         return new Coupon(
             name,
-            DiscountType.PERCENTAGE,
-            null,
-            discountRate,
-            totalQuantity,
-            validFrom,
-            validUntil,
+            DiscountValue.percentage(discountRate),
+            CouponQuantity.of(totalQuantity),
+            ValidPeriod.of(validFrom, validUntil),
             Money.of(minOrderAmount)
         );
     }
@@ -95,19 +78,18 @@ public class Coupon {
             throw new CustomException(ErrorCode.COUPON_NOT_AVAILABLE);
         }
 
-        this.issuedQuantity++;
+        this.quantity = this.quantity.issue();
         this.updatedAt = LocalDateTime.now();
     }
 
     // 발급 가능 여부 확인
     public boolean canIssue() {
-        return this.issuedQuantity < this.totalQuantity;
+        return this.quantity.canIssue();
     }
 
     // 유효기간 확인
     public boolean isValid() {
-        LocalDate today = LocalDate.now();
-        return !today.isBefore(validFrom) && !today.isAfter(validUntil);
+        return this.validPeriod.isValid();
     }
 
     // 할인 금액 계산
@@ -117,13 +99,7 @@ public class Coupon {
             throw new CustomException(ErrorCode.COUPON_NOT_AVAILABLE);
         }
 
-        if (discountType == DiscountType.FIXED) {
-            return discountPrice;
-        } else {
-            // 정률 할인: 주문 금액 * 할인율
-            long discountAmount = (long) (orderAmount.getAmount() * discountRate / 100.0);
-            return Money.of(discountAmount);
-        }
+        return discountValue.calculateDiscountAmount(orderAmount);
     }
 
     // 상태 변경
@@ -153,30 +129,32 @@ public class Coupon {
         }
     }
 
-    private static void validateQuantity(int quantity) {
-        if (quantity <= 0) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
-        }
+    // VO를 통한 접근 메서드
+    public DiscountType getDiscountType() {
+        return discountValue.getDiscountType();
     }
 
-    private static void validateValidPeriod(LocalDate validFrom, LocalDate validUntil) {
-        if (validFrom == null || validUntil == null) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        if (validFrom.isAfter(validUntil)) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
-        }
+    public Money getDiscountPrice() {
+        return discountValue.getDiscountPrice();
     }
 
-    private static void validateDiscount(DiscountType type, Money discountPrice, Double discountRate) {
-        if (type == DiscountType.FIXED) {
-            if (discountPrice == null || discountPrice.isLessThanOrEqual(Money.of(0L))) {
-                throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
-            }
-        } else if (type == DiscountType.PERCENTAGE) {
-            if (discountRate == null || discountRate <= 0 || discountRate > 100) {
-                throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
-            }
-        }
+    public Double getDiscountRate() {
+        return discountValue.getDiscountRate();
+    }
+
+    public int getTotalQuantity() {
+        return quantity.getTotalQuantity();
+    }
+
+    public int getIssuedQuantity() {
+        return quantity.getIssuedQuantity();
+    }
+
+    public LocalDate getValidFrom() {
+        return validPeriod.getValidFrom();
+    }
+
+    public LocalDate getValidUntil() {
+        return validPeriod.getValidUntil();
     }
 }
