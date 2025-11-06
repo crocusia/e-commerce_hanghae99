@@ -1,6 +1,5 @@
 package com.example.ecommerce.controller;
 
-import com.example.ecommerce.api.OrderItemApi;
 import com.example.ecommerce.dto.order.OrderItemResponse;
 import jakarta.validation.constraints.Positive;
 import org.springframework.http.ResponseEntity;
@@ -12,9 +11,8 @@ import java.util.List;
 @Validated
 @RestController
 @RequestMapping("/api/order-items")
-public class OrderItemController implements OrderItemApi {
+public class OrderItemController {
 
-    @Override
     public ResponseEntity<List<OrderItemResponse>> getOrderItems(
         @PathVariable @Positive Long orderId
     ) {
@@ -22,7 +20,6 @@ public class OrderItemController implements OrderItemApi {
         return ResponseEntity.ok(List.of());
     }
 
-    @Override
     public ResponseEntity<OrderItemResponse> getOrderItem(
         @PathVariable @Positive Long orderItemId
     ) {
@@ -41,7 +38,6 @@ public class OrderItemController implements OrderItemApi {
         return ResponseEntity.ok(mockResponse);
     }
 
-    @Override
     public ResponseEntity<OrderItemResponse> cancelOrderItem(
         @PathVariable @Positive Long orderItemId
     ) {
@@ -60,7 +56,6 @@ public class OrderItemController implements OrderItemApi {
         return ResponseEntity.ok(mockResponse);
     }
 
-    @Override
     public ResponseEntity<OrderItemResponse> returnOrderItem(
         @PathVariable @Positive Long orderItemId
     ) {
@@ -79,7 +74,6 @@ public class OrderItemController implements OrderItemApi {
         return ResponseEntity.ok(mockResponse);
     }
 
-    @Override
     public ResponseEntity<OrderItemResponse> exchangeOrderItem(
         @PathVariable @Positive Long orderItemId
     ) {
