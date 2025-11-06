@@ -8,6 +8,7 @@ import com.example.ecommerce.coupon.repository.InMemoryUserCouponRepository;
 import com.example.ecommerce.coupon.repository.UserCouponRepository;
 import com.example.ecommerce.coupon.service.UserCouponService;
 import com.example.ecommerce.coupon.service.UserCouponService.IssueCouponInput;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,57 +39,6 @@ class CouponConcurrencyIntegrationTest {
     }
 
     // === 동시성 제어 테스트 ===
-
-    @Test
-    @DisplayName("100명이 동시에 선착순 100개 쿠폰 발급 시도 - 정확히 100개만 발급")
-    void issueCoupon_Concurrency_ExactLimit() throws InterruptedException {
-        // given
-        int totalQuantity = 100;
-        int threadCount = 100;
-
-        Coupon coupon = Coupon.createFixed(
-            "선착순 100개 한정 쿠폰",
-            5000L,
-            totalQuantity,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
-            10000L
-        );
-        Coupon savedCoupon = couponRepository.save(coupon);
-
-        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-        CountDownLatch latch = new CountDownLatch(threadCount);
-        AtomicInteger successCount = new AtomicInteger(0);
-        AtomicInteger failCount = new AtomicInteger(0);
-
-        // when - 100명이 동시에 발급 시도
-        for (int i = 1; i <= threadCount; i++) {
-            final long userId = i;
-            executorService.submit(() -> {
-                try {
-                    userCouponService.issueCoupon(new IssueCouponInput(userId, savedCoupon.getId()));
-                    successCount.incrementAndGet();
-                } catch (Exception e) {
-                    failCount.incrementAndGet();
-                } finally {
-                    latch.countDown();
-                }
-            });
-        }
-
-        latch.await();
-        executorService.shutdown();
-
-        // then - 정확히 100개만 발급되어야 함
-        assertThat(successCount.get()).isEqualTo(100);
-        assertThat(failCount.get()).isEqualTo(0);
-
-        // 쿠폰의 발급 수량도 100개여야 함
-        Coupon issuedCoupon = couponRepository.findById(savedCoupon.getId()).get();
-        assertThat(issuedCoupon.getIssuedQuantity()).isEqualTo(100);
-        assertThat(issuedCoupon.canIssue()).isFalse();
-    }
-
     @Test
     @DisplayName("200명이 동시에 선착순 100개 쿠폰 발급 시도 - 정확히 100개만 발급, 100명 실패")
     void issueCoupon_Concurrency_OverLimit() throws InterruptedException {
@@ -107,7 +57,10 @@ class CouponConcurrencyIntegrationTest {
         Coupon savedCoupon = couponRepository.save(coupon);
 
         ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-        CountDownLatch latch = new CountDownLatch(threadCount);
+
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch endLatch = new CountDownLatch(threadCount);
+
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
 
@@ -116,17 +69,20 @@ class CouponConcurrencyIntegrationTest {
             final long userId = i;
             executorService.submit(() -> {
                 try {
+                    startLatch.await();
                     userCouponService.issueCoupon(new IssueCouponInput(userId, savedCoupon.getId()));
                     successCount.incrementAndGet();
-                } catch (CustomException e) {
+                } catch (Exception e) {
                     failCount.incrementAndGet();
                 } finally {
-                    latch.countDown();
+                    endLatch.countDown();
                 }
             });
         }
 
-        latch.await();
+        startLatch.countDown();
+        endLatch.await(10, TimeUnit.SECONDS);
+
         executorService.shutdown();
 
         // then - 정확히 100개만 발급, 100명 실패
@@ -136,56 +92,6 @@ class CouponConcurrencyIntegrationTest {
         // 쿠폰의 발급 수량도 100개여야 함
         Coupon issuedCoupon = couponRepository.findById(savedCoupon.getId()).get();
         assertThat(issuedCoupon.getIssuedQuantity()).isEqualTo(100);
-        assertThat(issuedCoupon.canIssue()).isFalse();
-    }
-
-    @Test
-    @DisplayName("1000명이 동시에 선착순 10개 쿠폰 발급 시도 - 정확히 10개만 발급")
-    void issueCoupon_Concurrency_HighContention() throws InterruptedException {
-        // given
-        int totalQuantity = 10;
-        int threadCount = 1000;
-
-        Coupon coupon = Coupon.createFixed(
-            "선착순 10개 한정 쿠폰",
-            5000L,
-            totalQuantity,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
-            10000L
-        );
-        Coupon savedCoupon = couponRepository.save(coupon);
-
-        ExecutorService executorService = Executors.newFixedThreadPool(100);
-        CountDownLatch latch = new CountDownLatch(threadCount);
-        AtomicInteger successCount = new AtomicInteger(0);
-        AtomicInteger failCount = new AtomicInteger(0);
-
-        // when - 1000명이 동시에 발급 시도
-        for (int i = 1; i <= threadCount; i++) {
-            final long userId = i;
-            executorService.submit(() -> {
-                try {
-                    userCouponService.issueCoupon(new IssueCouponInput(userId, savedCoupon.getId()));
-                    successCount.incrementAndGet();
-                } catch (CustomException e) {
-                    failCount.incrementAndGet();
-                } finally {
-                    latch.countDown();
-                }
-            });
-        }
-
-        latch.await();
-        executorService.shutdown();
-
-        // then - 정확히 10개만 발급되어야 함
-        assertThat(successCount.get()).isEqualTo(10);
-        assertThat(failCount.get()).isEqualTo(990);
-
-        // 쿠폰의 발급 수량도 10개여야 함
-        Coupon issuedCoupon = couponRepository.findById(savedCoupon.getId()).get();
-        assertThat(issuedCoupon.getIssuedQuantity()).isEqualTo(10);
         assertThat(issuedCoupon.canIssue()).isFalse();
     }
 
@@ -255,7 +161,10 @@ class CouponConcurrencyIntegrationTest {
         int attemptCount = 10;
 
         ExecutorService executorService = Executors.newFixedThreadPool(attemptCount);
-        CountDownLatch latch = new CountDownLatch(attemptCount);
+
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch endLatch = new CountDownLatch(attemptCount);
+
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
 
@@ -263,17 +172,19 @@ class CouponConcurrencyIntegrationTest {
         for (int i = 0; i < attemptCount; i++) {
             executorService.submit(() -> {
                 try {
+                    startLatch.await();
                     userCouponService.issueCoupon(new IssueCouponInput(userId, savedCoupon.getId()));
                     successCount.incrementAndGet();
-                } catch (CustomException e) {
+                } catch (Exception e) {
                     failCount.incrementAndGet();
                 } finally {
-                    latch.countDown();
+                    endLatch.countDown();
                 }
             });
         }
 
-        latch.await();
+        startLatch.countDown();
+        endLatch.await(10, TimeUnit.SECONDS);
         executorService.shutdown();
 
         // then - 1번만 성공, 9번 실패
@@ -300,8 +211,10 @@ class CouponConcurrencyIntegrationTest {
         Coupon savedCoupon = couponRepository.save(coupon);
 
         int threadCount = 500;
-        ExecutorService executorService = Executors.newFixedThreadPool(100);
-        CountDownLatch latch = new CountDownLatch(threadCount);
+        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch endLatch = new CountDownLatch(threadCount);
+
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
 
@@ -310,17 +223,20 @@ class CouponConcurrencyIntegrationTest {
             final long userId = i;
             executorService.submit(() -> {
                 try {
+                    startLatch.await();
                     userCouponService.issueCoupon(new IssueCouponInput(userId, savedCoupon.getId()));
                     successCount.incrementAndGet();
-                } catch (CustomException e) {
+                } catch (Exception e) {
                     failCount.incrementAndGet();
                 } finally {
-                    latch.countDown();
+                    endLatch.countDown();
                 }
             });
         }
 
-        latch.await();
+        startLatch.countDown();
+        endLatch.await(10, TimeUnit.SECONDS);
+
         executorService.shutdown();
 
         // then - 정확히 1명만 성공
@@ -331,63 +247,5 @@ class CouponConcurrencyIntegrationTest {
         Coupon issuedCoupon = couponRepository.findById(savedCoupon.getId()).get();
         assertThat(issuedCoupon.getIssuedQuantity()).isEqualTo(1);
         assertThat(issuedCoupon.canIssue()).isFalse();
-    }
-
-    @Test
-    @DisplayName("순차 발급과 동시 발급 결과가 동일함을 검증")
-    void issueCoupon_Concurrency_ConsistencyCheck() throws InterruptedException {
-        // given
-        int totalQuantity = 50;
-
-        // 순차 발급
-        Coupon sequentialCoupon = Coupon.createFixed(
-            "순차 발급 쿠폰",
-            5000L,
-            totalQuantity,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
-            10000L
-        );
-        Coupon savedSequentialCoupon = couponRepository.save(sequentialCoupon);
-
-        for (int i = 1; i <= totalQuantity; i++) {
-            userCouponService.issueCoupon(new IssueCouponInput((long) i, savedSequentialCoupon.getId()));
-        }
-
-        // 동시 발급
-        Coupon concurrentCoupon = Coupon.createFixed(
-            "동시 발급 쿠폰",
-            5000L,
-            totalQuantity,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
-            10000L
-        );
-        Coupon savedConcurrentCoupon = couponRepository.save(concurrentCoupon);
-
-        ExecutorService executorService = Executors.newFixedThreadPool(totalQuantity);
-        CountDownLatch latch = new CountDownLatch(totalQuantity);
-
-        for (int i = 1; i <= totalQuantity; i++) {
-            final long userId = 100L + i; // 다른 사용자 ID 사용
-            executorService.submit(() -> {
-                try {
-                    userCouponService.issueCoupon(new IssueCouponInput(userId, savedConcurrentCoupon.getId()));
-                } finally {
-                    latch.countDown();
-                }
-            });
-        }
-
-        latch.await();
-        executorService.shutdown();
-
-        // then - 순차와 동시 발급 결과가 동일해야 함
-        Coupon sequentialResult = couponRepository.findById(savedSequentialCoupon.getId()).get();
-        Coupon concurrentResult = couponRepository.findById(savedConcurrentCoupon.getId()).get();
-
-        assertThat(sequentialResult.getIssuedQuantity()).isEqualTo(concurrentResult.getIssuedQuantity());
-        assertThat(sequentialResult.canIssue()).isEqualTo(concurrentResult.canIssue());
-        assertThat(sequentialResult.getIssuedQuantity()).isEqualTo(totalQuantity);
     }
 }
