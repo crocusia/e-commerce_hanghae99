@@ -10,9 +10,9 @@ public interface UserCouponRepository {
     Optional<UserCoupon> findById(Long id);
     Optional<UserCoupon> findByUserIdAndCouponId(Long userId, Long couponId);
     List<UserCoupon> findByUserId(Long userId);
-    List<UserCoupon> findByCouponId(Long couponId);
+    List<UserCoupon> findByCouponIdsAndUnusedStatus(List<Long> couponIds);
+
     boolean existsByUserIdAndCouponId(Long userId, Long couponId);
-    void deleteById(Long id);
 
     default UserCoupon findByIdOrElseThrow(Long id) {
         return findById(id).orElseThrow(

@@ -54,8 +54,11 @@ public class InMemoryCouponRepository implements CouponRepository {
     }
 
     @Override
-    public void deleteById(Long id) {
-        storage.remove(id);
+    public List<Long> findExpiredCouponIds() {
+        return storage.values().stream()
+            .filter(coupon -> !coupon.isValid())
+            .map(Coupon::getId)
+            .toList();
     }
 
     private void copyFields(Coupon source, Coupon target) throws Exception {

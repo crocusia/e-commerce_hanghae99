@@ -64,21 +64,17 @@ public class InMemoryUserCouponRepository implements UserCouponRepository {
     }
 
     @Override
-    public List<UserCoupon> findByCouponId(Long couponId) {
-        return storage.values().stream()
-            .filter(uc -> uc.getCoupon().getId().equals(couponId))
-            .collect(Collectors.toList());
-    }
-
-    @Override
     public boolean existsByUserIdAndCouponId(Long userId, Long couponId) {
         return storage.values().stream()
             .anyMatch(uc -> uc.getUserId().equals(userId) && uc.getCoupon().getId().equals(couponId));
     }
 
     @Override
-    public void deleteById(Long id) {
-        storage.remove(id);
+    public List<UserCoupon> findByCouponIdsAndUnusedStatus(List<Long> couponIds) {
+        return storage.values().stream()
+            .filter(uc -> couponIds.contains(uc.getCoupon().getId()))
+            .filter(uc -> uc.getStatus() == com.example.ecommerce.coupon.domain.UserCouponStatus.UNUSED)
+            .collect(java.util.stream.Collectors.toList());
     }
 
     private void copyFields(UserCoupon source, UserCoupon target) throws Exception {
