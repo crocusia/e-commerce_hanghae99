@@ -1,4 +1,4 @@
-package com.example.ecommerce.dto.common;
+package com.example.ecommerce.common.exception;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
