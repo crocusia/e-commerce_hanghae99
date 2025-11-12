@@ -15,7 +15,14 @@ public enum ErrorCode {
     PRODUCT_NOT_FOUND("PRODUCT_001", HttpStatus.NOT_FOUND, "조회된 상품이 없습니다."),
     PRODUCT_OUT_OF_STOCK("PRODUCT_002", HttpStatus.CONFLICT, "상품의 재고가 부족합니다."),
     PRODUCT_ALREADY_EXISTS("PRODUCT_003", HttpStatus.CONFLICT, "이미 존재하는 상품입니다."),
-    INVALID_PRODUCT_STATUS("PRODUCT_004", HttpStatus.BAD_REQUEST, "유효하지 않은 상품 상태입니다.");
+    INVALID_PRODUCT_STATUS("PRODUCT_004", HttpStatus.BAD_REQUEST, "유효하지 않은 상품 상태입니다."),
+
+    // User
+    USER_NOT_FOUND("USER_001", HttpStatus.NOT_FOUND, "조회된 유저가 없습니다."),
+    USER_INSUFFICIENT_BALANCE("USER_002", HttpStatus.BAD_REQUEST, "잔액이 부족합니다."),
+    USER_INVALID_CHARGE_AMOUNT("USER_003", HttpStatus.BAD_REQUEST, "충전 금액은 0보다 커야 합니다."),
+    USER_INVALID_BALANCE("USER_004", HttpStatus.BAD_REQUEST, "잔액은 0 이상이어야 합니다.");
+
     private final String code;
     private final HttpStatus status;
     private final String message;
