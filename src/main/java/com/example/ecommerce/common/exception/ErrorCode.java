@@ -30,6 +30,12 @@ public enum ErrorCode {
     COUPON_EXPIRED("COUPON_004", HttpStatus.GONE, "만료된 쿠폰입니다."),
     COUPON_NOT_AVAILABLE("COUPON_005", HttpStatus.CONFLICT, "사용할 수 없는 쿠폰입니다."),
 
+    // Order
+    ORDER_NOT_FOUND("ORDER_001", HttpStatus.NOT_FOUND, "주문을 찾을 수 없습니다."),
+    ORDER_ALREADY_COMPLETED("ORDER_002", HttpStatus.CONFLICT, "이미 완료된 주문입니다."),
+    ORDER_ALREADY_CANCELLED("ORDER_003", HttpStatus.CONFLICT, "이미 취소된 주문입니다."),
+    INVALID_ORDER_STATUS_APPLY_COUPON("ORDER_004",HttpStatus.BAD_REQUEST, "쿠폰을 변경할 수 없는 주문 상태입니다."),
+
     // Lock
     LOCK_ACQUISITION_FAILED("LOCK_001", HttpStatus.CONFLICT, "락 획득에 실패했습니다. 잠시 후 다시 시도해주세요."),
     LOCK_TIMEOUT("LOCK_002", HttpStatus.REQUEST_TIMEOUT, "락 획득 제한 시간을 초과했습니다."),
