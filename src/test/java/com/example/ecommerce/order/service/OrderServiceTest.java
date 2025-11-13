@@ -3,6 +3,7 @@ package com.example.ecommerce.order.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -202,7 +203,7 @@ class OrderServiceTest {
 
             then(productRepository).should().findByIdOrElseThrow(testProductId1);
             then(orderRepository).should(never()).save(any(Order.class));
-            then(stockService).should(never()).reserve(anyLong(), anyLong(), any());
+            then(stockService).should(never()).reserve(anyLong(), anyLong(), anyInt());
         }
 
         @Test

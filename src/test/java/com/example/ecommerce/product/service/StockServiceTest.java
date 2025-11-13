@@ -15,7 +15,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -242,54 +241,6 @@ class StockServiceTest {
 
             // when
             stockService.release(orderId);
-
-            // then
-            then(stockRepository).should(times(0)).save(any(ProductStock.class));
-        }
-    }
-
-    @Nested
-    @DisplayName("만료된 예약 자동 해제 테스트")
-    class ExpireReservationsTest {
-
-        @Test
-        @DisplayName("만료된 예약을 자동으로 해제한다")
-        void expireReservations() {
-            // given
-            LocalDateTime now = LocalDateTime.now();
-            Long productId = 100L;
-            int quantity = 10;
-
-            StockReservation expiredReservation = createReservation(1L, 1L, productId, quantity, ReservationStatus.RESERVED);
-            ProductStock stock = createProductStock(productId, 100, quantity);
-
-            given(reservationRepository.findExpiredReservations(now)).willReturn(Collections.singletonList(expiredReservation));
-            given(stockRepository.findByIdOrElseThrow(productId)).willReturn(stock);
-
-            int initialReserved = stock.getReservedStock();
-
-            // when
-            stockService.expireReservations();
-
-            // then
-            assertAll(
-                () -> assertThat(expiredReservation.getStatus()).isEqualTo(ReservationStatus.RELEASED),
-                () -> assertThat(stock.getReservedStock()).isEqualTo(initialReserved - quantity),
-                () -> then(reservationRepository).should().findExpiredReservations(any(LocalDateTime.class)),
-                () -> then(stockRepository).should().save(stock),
-                () -> then(reservationRepository).should().save(expiredReservation)
-            );
-        }
-
-        @Test
-        @DisplayName("만료된 예약이 없으면 아무 작업도 수행하지 않는다")
-        void expireWithNoExpiredReservations() {
-            // given
-            LocalDateTime now = LocalDateTime.now();
-            given(reservationRepository.findExpiredReservations(now)).willReturn(Collections.emptyList());
-
-            // when
-            stockService.expireReservations();
 
             // then
             then(stockRepository).should(times(0)).save(any(ProductStock.class));

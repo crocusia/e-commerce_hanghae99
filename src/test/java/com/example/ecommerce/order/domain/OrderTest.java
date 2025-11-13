@@ -311,6 +311,53 @@ class OrderTest {
     }
 
     @Nested
+    @DisplayName("주문 취소 테스트")
+    class CancelTest {
+
+        @Test
+        @DisplayName("주문을 정상적으로 취소한다")
+        void cancelOrderSuccessfully() {
+            // given
+            Order order = createDefaultOrder();
+
+            // when
+            order.cancel();
+
+            // then
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        }
+
+        @Test
+        @DisplayName("주문 취소 시 updatedAt이 갱신된다")
+        void updatedAtIsRefreshedAfterCancel() throws InterruptedException {
+            // given
+            Order order = createDefaultOrder();
+            var originalUpdatedAt = order.getUpdatedAt();
+            Thread.sleep(10);
+
+            // when
+            order.cancel();
+
+            // then
+            assertThat(order.getUpdatedAt()).isAfter(originalUpdatedAt);
+        }
+
+        @Test
+        @DisplayName("주문 취소 후 상태가 CANCELLED로 변경된다")
+        void statusChangesAfterCancel() {
+            // given
+            Order order = createDefaultOrder();
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
+
+            // when
+            order.cancel();
+
+            // then
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        }
+    }
+
+    @Nested
     @DisplayName("주문 항목 조회 테스트")
     class GetOrderItemsTest {
 

@@ -11,8 +11,8 @@ public record PaymentRequest(
     @Positive(message = "주문 ID는 양수여야 합니다")
     Long orderId,
 
-    @Schema(description = "쿠폰 ID (선택사항)")
-    @Positive(message = "쿠폰 ID는 양수여야 합니다")
-    Long userCouponId
+    @NotNull(message = "사용자 ID는 필수입니다")
+    @Schema(description = "사용자 ID")
+    Long userId
 ) {
 }

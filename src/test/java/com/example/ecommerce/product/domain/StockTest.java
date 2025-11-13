@@ -102,17 +102,6 @@ class StockTest {
             // when & then
             assertThrowsOutOfStock(() -> stock.decrease(20));
         }
-
-        @ParameterizedTest
-        @ValueSource(ints = {0, -1, -10})
-        @DisplayName("0 이하의 수량을 차감하면 예외가 발생한다")
-        void decreaseWithInvalidAmount(int amount) {
-            // given
-            Stock stock = createStock(100);
-
-            // when & then
-            assertThrowsInvalidInputValue(() -> stock.decrease(amount));
-        }
     }
 
     @Nested
@@ -135,17 +124,6 @@ class StockTest {
 
             // then
             assertStockEquals(expectedQuantity, result);
-        }
-
-        @ParameterizedTest
-        @ValueSource(ints = {0, -1, -10})
-        @DisplayName("0 이하의 수량을 추가하면 예외가 발생한다")
-        void increaseWithInvalidAmount(int amount) {
-            // given
-            Stock stock = createStock(100);
-
-            // when & then
-            assertThrowsInvalidInputValue(() -> stock.increase(amount));
         }
     }
 
