@@ -21,7 +21,19 @@ public enum ErrorCode {
     USER_NOT_FOUND("USER_001", HttpStatus.NOT_FOUND, "조회된 유저가 없습니다."),
     USER_INSUFFICIENT_BALANCE("USER_002", HttpStatus.BAD_REQUEST, "잔액이 부족합니다."),
     USER_INVALID_CHARGE_AMOUNT("USER_003", HttpStatus.BAD_REQUEST, "충전 금액은 0보다 커야 합니다."),
-    USER_INVALID_BALANCE("USER_004", HttpStatus.BAD_REQUEST, "잔액은 0 이상이어야 합니다.");
+    USER_INVALID_BALANCE("USER_004", HttpStatus.BAD_REQUEST, "잔액은 0 이상이어야 합니다."),
+
+    // Coupon
+    COUPON_NOT_FOUND("COUPON_001", HttpStatus.NOT_FOUND, "쿠폰을 찾을 수 없습니다."),
+    COUPON_ALREADY_USED("COUPON_002",HttpStatus.CONFLICT, "이미 사용된 쿠폰입니다."),
+    COUPON_ALREADY_ISSUED("COUPON_003",HttpStatus.CONFLICT, "이미 발급된 쿠폰입니다."),
+    COUPON_EXPIRED("COUPON_004", HttpStatus.GONE, "만료된 쿠폰입니다."),
+    COUPON_NOT_AVAILABLE("COUPON_005", HttpStatus.CONFLICT, "사용할 수 없는 쿠폰입니다."),
+
+    // Lock
+    LOCK_ACQUISITION_FAILED("LOCK_001", HttpStatus.CONFLICT, "락 획득에 실패했습니다. 잠시 후 다시 시도해주세요."),
+    LOCK_TIMEOUT("LOCK_002", HttpStatus.REQUEST_TIMEOUT, "락 획득 제한 시간을 초과했습니다."),
+    LOCK_INTERRUPTED("LOCK_003", HttpStatus.INTERNAL_SERVER_ERROR, "락 획득 중 인터럽트가 발생했습니다.");
 
     private final String code;
     private final HttpStatus status;
