@@ -36,6 +36,13 @@ public enum ErrorCode {
     ORDER_ALREADY_CANCELLED("ORDER_003", HttpStatus.CONFLICT, "이미 취소된 주문입니다."),
     INVALID_ORDER_STATUS_APPLY_COUPON("ORDER_004",HttpStatus.BAD_REQUEST, "쿠폰을 변경할 수 없는 주문 상태입니다."),
 
+    // Payment
+    PAYMENT_NOT_FOUND("PAYMENT_001", HttpStatus.NOT_FOUND, "결제를 찾을 수 없습니다."),
+    PAYMENT_FAILED("PAYMENT_002", HttpStatus.PAYMENT_REQUIRED, "결제에 실패했습니다."),
+    INSUFFICIENT_BALANCE("PAYMENT_003", HttpStatus.PAYMENT_REQUIRED, "잔액이 부족합니다."),
+    INVALID_PAYMENT_AMOUNT("PAYMENT_004", HttpStatus.BAD_REQUEST, "결제 금액이 유효하지 않습니다."),
+    BALANCE_NOT_FOUND("PAYMENT_005", HttpStatus.NOT_FOUND, "잔액 정보를 찾을 수 없습니다."),
+
     // Lock
     LOCK_ACQUISITION_FAILED("LOCK_001", HttpStatus.CONFLICT, "락 획득에 실패했습니다. 잠시 후 다시 시도해주세요."),
     LOCK_TIMEOUT("LOCK_002", HttpStatus.REQUEST_TIMEOUT, "락 획득 제한 시간을 초과했습니다."),
