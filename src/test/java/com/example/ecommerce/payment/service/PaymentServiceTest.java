@@ -139,21 +139,23 @@ class PaymentServiceTest {
         @DisplayName("잔액 부족 시 결제가 실패하고 주문이 취소된다")
         void processPayment_InsufficientBalance() {
             // given
-            User poorUser = createTestUser(testUserId, "가난한유저", 1000L); // 잔액 부족
+            User poorUser = createTestUser(testUserId, "가난한유저", 1000L);
+
             given(orderRepository.findByIdOrElseThrow(testOrderId)).willReturn(testOrder);
             given(userRepository.findByIdOrElseThrow(testUserId)).willReturn(poorUser);
+
             given(paymentRepository.save(any(Payment.class))).willReturn(testPayment);
             given(orderRepository.save(any(Order.class))).willReturn(testOrder);
 
-            // when
-            PaymentResponse response = paymentService.processPayment(testUserId, testOrderId);
+            assertThrowsCustomException(
+                ErrorCode.USER_INSUFFICIENT_BALANCE,
+                () -> paymentService.processPayment(testUserId, testOrderId)
+            );
 
             // then
-            assertThat(response).isNotNull();
-            assertThat(response.status()).isEqualTo(com.example.ecommerce.payment.domain.status.PaymentStatus.FAILED);
-
             then(orderRepository).should().findByIdOrElseThrow(testOrderId);
             then(userRepository).should().findByIdOrElseThrow(testUserId);
+
             then(paymentRepository).should(times(2)).save(any(Payment.class));
             then(stockService).should(never()).confirm(anyLong());
             then(stockService).should().release(testOrderId);
