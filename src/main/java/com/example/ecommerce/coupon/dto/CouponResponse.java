@@ -3,6 +3,7 @@ package com.example.ecommerce.coupon.dto;
 import com.example.ecommerce.coupon.domain.Coupon;
 import com.example.ecommerce.coupon.domain.status.CouponStatus;
 import com.example.ecommerce.coupon.domain.status.DiscountType;
+import com.example.ecommerce.coupon.domain.vo.DiscountValue;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
@@ -24,12 +25,22 @@ public record CouponResponse(
     @Schema(description = "쿠폰 상태") CouponStatus status
 ) {
     public static CouponResponse from(Coupon coupon) {
+        DiscountValue discountValue = coupon.getDiscountValue();
+
+        Long safeDiscountPrice = discountValue.getDiscountPrice() != null
+            ? discountValue.getDiscountPrice().getAmount()
+            : null;
+
+        Double safeDiscountRate = discountValue.getDiscountRate() != null
+            ? discountValue.getDiscountRate()
+            : null;
+
         return new CouponResponse(
             coupon.getId(),
             coupon.getName(),
             coupon.getDiscountValue().getDiscountType(),
-            coupon.getDiscountValue().getDiscountPrice().getAmount(),
-            coupon.getDiscountValue().getDiscountRate(),
+            safeDiscountPrice,
+            safeDiscountRate,
             coupon.getQuantity().getTotalQuantity(),
             coupon.getQuantity().getIssuedQuantity(),
             coupon.getQuantity().getTotalQuantity() - coupon.getQuantity().getIssuedQuantity(),

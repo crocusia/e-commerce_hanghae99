@@ -106,8 +106,8 @@ class UserCouponServiceTest {
         void issueCoupon_Success() {
             // given
             given(couponRepository.findByIdOrElseThrow(testCouponId)).willReturn(testCoupon);
-            given(userCouponRepository.findByUserId(testUserId)).willReturn(List.of());
-            given(couponRepository.save(any(Coupon.class))).willReturn(testCoupon);
+            given(userCouponRepository.findByUserIdAndCouponId(testUserId, testCouponId)).willReturn(
+                Optional.empty());
             given(userCouponRepository.save(any(UserCoupon.class))).willReturn(testUserCoupon);
 
             // when
@@ -117,8 +117,7 @@ class UserCouponServiceTest {
             assertThat(result).isNotNull();
 
             then(couponRepository).should().findByIdOrElseThrow(testCouponId);
-            then(userCouponRepository).should().findByUserId(testUserId);
-            then(couponRepository).should().save(any(Coupon.class));
+            then(userCouponRepository).should().findByUserIdAndCouponId(testUserId, testCouponId);
             then(userCouponRepository).should().save(any(UserCoupon.class));
         }
 
@@ -128,7 +127,8 @@ class UserCouponServiceTest {
             // given
             given(couponRepository.findByIdOrElseThrow(testCouponId)).willReturn(testCoupon);
             // 같은 사용자가 같은 쿠폰을 이미 받은 상태
-            given(userCouponRepository.findByUserId(testUserId)).willReturn(List.of(testUserCoupon));
+            given(userCouponRepository.findByUserIdAndCouponId(testUserId, testCouponId)).willReturn(
+                Optional.ofNullable(testUserCoupon));
 
             // when & then
             assertThrowsCustomException(
@@ -137,8 +137,7 @@ class UserCouponServiceTest {
             );
 
             then(couponRepository).should().findByIdOrElseThrow(testCouponId);
-            then(userCouponRepository).should().findByUserId(testUserId);
-            then(couponRepository).should(never()).save(any());
+            then(userCouponRepository).should().findByUserIdAndCouponId(testUserId, testCouponId);
             then(userCouponRepository).should(never()).save(any());
         }
     }

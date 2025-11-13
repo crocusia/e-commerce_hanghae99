@@ -80,6 +80,11 @@ public class Order {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void cancel() {
+        this.status = OrderStatus.CANCELLED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public List<OrderItem> getOrderItems() {
         return new ArrayList<>(orderItems);
     }
