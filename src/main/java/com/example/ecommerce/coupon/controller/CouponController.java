@@ -2,7 +2,9 @@ package com.example.ecommerce.coupon.controller;
 
 import com.example.ecommerce.common.dto.PageResponse;
 import com.example.ecommerce.coupon.dto.CouponResponse;
+import com.example.ecommerce.coupon.service.CouponService;
 import jakarta.validation.constraints.Positive;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -13,7 +15,10 @@ import org.springframework.web.bind.annotation.*;
 @Validated
 @RestController
 @RequestMapping("/api/coupons")
+@RequiredArgsConstructor
 public class CouponController implements CouponApi {
+
+    private final CouponService couponService;
 
     @Override
     public ResponseEntity<PageResponse<CouponResponse>> getAvailableCoupons(
@@ -31,21 +36,7 @@ public class CouponController implements CouponApi {
     public ResponseEntity<CouponResponse> getCoupon(
         @PathVariable @Positive Long couponId
     ) {
-        CouponResponse mockResponse = new CouponResponse(
-            couponId,
-            "Mock",
-            1L,
-            0.5,
-            0,
-            0,
-            0,
-            null,
-            null,
-            0,
-            null
-        );
-
-        // TODO: 서비스 레이어 구현 후 연결
-        return ResponseEntity.ok(mockResponse);
+        CouponResponse result = couponService.getCoupon(couponId);
+        return ResponseEntity.ok(result);
     }
 }
