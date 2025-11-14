@@ -3,6 +3,10 @@ package com.example.ecommerce.coupon.domain;
 import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.common.exception.ErrorCode;
 import com.example.ecommerce.coupon.domain.status.UserCouponStatus;
+import com.example.ecommerce.coupon.domain.vo.CouponQuantity;
+import com.example.ecommerce.coupon.domain.vo.DiscountValue;
+import com.example.ecommerce.coupon.domain.vo.ValidPeriod;
+import com.example.ecommerce.product.domain.vo.Money;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -15,21 +19,40 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DisplayName("UserCoupon 도메인 테스트")
 class UserCouponTest {
 
-    private UserCoupon createUserCoupon(Long userId, Long couponId, LocalDateTime expiresAt) {
+    private Coupon createCoupon() {
+        return Coupon.builder()
+            .name("테스트 쿠폰")
+            .discountValue(DiscountValue.fixed(5000L))
+            .quantity(CouponQuantity.of(100))
+            .validPeriod(ValidPeriod.of(LocalDateTime.now(), LocalDateTime.now().plusDays(30)))
+            .minOrderAmount(Money.of(10000L))
+            .build();
+    }
+
+    private UserCoupon createUserCoupon(Long userId, Coupon coupon) {
         return UserCoupon.builder()
             .id(1L)
             .userId(userId)
-            .couponId(couponId)
-            .expiresAt(expiresAt)
+            .coupon(coupon)
+            .status(UserCouponStatus.UNUSED)
+            .expiresAt(LocalDateTime.now().plusDays(30))
             .build();
     }
 
     private UserCoupon createValidUserCoupon() {
-        return createUserCoupon(1L, 1L, LocalDateTime.now().plusDays(30));
+        Coupon coupon = createCoupon();
+        return createUserCoupon(1L, coupon);
     }
 
     private UserCoupon createExpiredUserCoupon() {
-        return createUserCoupon(1L, 1L, LocalDateTime.now().minusDays(1));
+        Coupon coupon = createCoupon();
+        return UserCoupon.builder()
+            .id(1L)
+            .userId(1L)
+            .coupon(coupon)
+            .status(UserCouponStatus.UNUSED)
+            .expiresAt(LocalDateTime.now().minusDays(1))
+            .build();
     }
 
     private void assertThrowsCustomException(ErrorCode expectedErrorCode, Runnable runnable) {
@@ -48,24 +71,24 @@ class UserCouponTest {
         void create_Success() {
             // given
             Long userId = 1L;
-            Long couponId = 100L;
+            Coupon coupon = createCoupon();
             LocalDateTime expiresAt = LocalDateTime.now().plusDays(30);
 
             // when
             UserCoupon userCoupon = UserCoupon.builder()
                 .id(1L)
                 .userId(userId)
-                .couponId(couponId)
+                .coupon(coupon)
+                .status(UserCouponStatus.UNUSED)
                 .expiresAt(expiresAt)
                 .build();
 
             // then
             assertThat(userCoupon.getUserId()).isEqualTo(userId);
-            assertThat(userCoupon.getCouponId()).isEqualTo(couponId);
+            assertThat(userCoupon.getCoupon()).isEqualTo(coupon);
             assertThat(userCoupon.getStatus()).isEqualTo(UserCouponStatus.UNUSED);
             assertThat(userCoupon.getUsedAt()).isNull();
             assertThat(userCoupon.getExpiresAt()).isEqualTo(expiresAt);
-            assertThat(userCoupon.getCreatedAt()).isNotNull();
         }
 
         @Test

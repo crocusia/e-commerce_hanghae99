@@ -47,7 +47,7 @@ class ProductTest {
                 .name("상품")
                 .price(Money.of(10000L))
                 .comment("설명")
-                .status(ProductStatus.ACTIVE)
+                .productStatus(ProductStatus.ACTIVE)
                 .build();
 
             // when
@@ -65,7 +65,7 @@ class ProductTest {
                 .name("상품")
                 .price(Money.of(10000L))
                 .comment("설명")
-                .status(ProductStatus.INACTIVE)
+                .productStatus(ProductStatus.INACTIVE)
                 .build();
 
             // when
@@ -83,7 +83,7 @@ class ProductTest {
                 .name("상품")
                 .price(Money.of(10000L))
                 .comment("설명")
-                .status(ProductStatus.DELETED)
+                .productStatus(ProductStatus.DELETED)
                 .build();
 
             // when

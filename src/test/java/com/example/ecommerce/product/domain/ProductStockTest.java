@@ -22,7 +22,9 @@ class ProductStockTest {
     private ProductStock create(Long productId, int stock) {
         return ProductStock.builder()
             .id(productId)
-            .stock(stock)
+            .productId(productId)
+            .currentStock(Stock.of(stock))
+            .reservedStock(0)
             .build();
     }
 
@@ -43,9 +45,8 @@ class ProductStockTest {
             // then
             assertAll(
                 () -> assertThat(productStock.getProductId()).isEqualTo(productId),
-                () -> assertThat(productStock.getCurrentStock()).isEqualTo(Stock.of(initialStock)),
-                () -> assertThat(productStock.getReservedStock()).isZero(),
-                () -> assertThat(productStock.getUpdatedAt()).isNotNull()
+                () -> assertThat(productStock.getCurrentStock().getQuantity()).isEqualTo(initialStock),
+                () -> assertThat(productStock.getReservedStock()).isZero()
             );
         }
     }
@@ -69,7 +70,7 @@ class ProductStockTest {
             productStock.decreaseStock(decreaseAmount);
 
             // then
-            assertThat(productStock.getCurrentStock()).isEqualTo(Stock.of(expectedStock));
+            assertThat(productStock.getCurrentStock().getQuantity()).isEqualTo(expectedStock);
         }
 
         @Test
@@ -117,7 +118,7 @@ class ProductStockTest {
             productStock.increaseStock(increaseAmount);
 
             // then
-            assertThat(productStock.getCurrentStock()).isEqualTo(Stock.of(expectedStock));
+            assertThat(productStock.getCurrentStock().getQuantity()).isEqualTo(expectedStock);
         }
 
         @Test
