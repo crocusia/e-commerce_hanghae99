@@ -2,12 +2,17 @@ package com.example.ecommerce.product.domain.vo;
 
 import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.common.exception.ErrorCode;
+import jakarta.persistence.Embeddable;
 import java.util.Objects;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Embeddable
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Money {
-    private final long amount;
+    private long amount;
 
     private Money(long amount) {
         validateAmount(amount);

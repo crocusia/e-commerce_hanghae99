@@ -1,32 +1,49 @@
 package com.example.ecommerce.payment.domain;
 
+import com.example.ecommerce.common.domain.BaseEntity;
+import com.example.ecommerce.order.domain.Order;
 import com.example.ecommerce.payment.domain.status.PaymentStatus;
+import com.example.ecommerce.user.domain.User;
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import lombok.Builder;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
+@Entity
+@Table(name = "payments")
 @Getter
-public class Payment {
-    private final Long id;
-    private final Long orderId;
-    private final Long userId;
-    private final Long amount;
-    private PaymentStatus status;
-    private String failureReason;
-    private final LocalDateTime createdAt;
-    private LocalDateTime completedAt;
-    private LocalDateTime updatedAt;
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@SuperBuilder
+public class Payment extends BaseEntity {
 
-    @Builder
-    private Payment(Long id, Long orderId, Long userId, Long amount) {
-        this.id = id;
-        this.orderId = orderId;
-        this.userId = userId;
-        this.amount = amount;
-        this.status = PaymentStatus.PENDING;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
+    @Column(name = "order_id", nullable = false)
+    private Long orderId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", insertable = false, updatable = false)
+    private Order order;
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    private User user;
+
+    @Column(name = "amount", nullable = false)
+    private Long amount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private PaymentStatus status;
+
+    @Column(name = "failure_reason", length = 500)
+    private String failureReason;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 
     public void complete() {
         if (this.status == PaymentStatus.COMPLETED) {
@@ -34,12 +51,10 @@ public class Payment {
         }
         this.status = PaymentStatus.COMPLETED;
         this.completedAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
     }
 
     public void fail(String reason) {
         this.status = PaymentStatus.FAILED;
         this.failureReason = reason;
-        this.updatedAt = LocalDateTime.now();
     }
 }
