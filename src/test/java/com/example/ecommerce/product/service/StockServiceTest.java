@@ -4,8 +4,10 @@ import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.product.domain.ProductStock;
 import com.example.ecommerce.product.domain.StockReservation;
 import com.example.ecommerce.product.domain.status.ReservationStatus;
+import com.example.ecommerce.product.domain.vo.Stock;
 import com.example.ecommerce.product.repository.ProductStockRepository;
 import com.example.ecommerce.product.repository.StockReservationRepository;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -41,7 +43,7 @@ class StockServiceTest {
     private ProductStock createProductStock(Long productId, int stock, int reserved) {
         ProductStock productStock = ProductStock.builder()
             .id(productId)
-            .stock(stock)
+            .currentStock(Stock.of(stock))
             .build();
         if (reserved > 0) {
             productStock.increaseReservedStock(reserved);
@@ -55,7 +57,7 @@ class StockServiceTest {
             .orderId(orderId)
             .productId(productId)
             .quantity(quantity)
-            .ttl(Duration.ofMinutes(10))
+            .expiresAt(LocalDateTime.now().plusMinutes(10))
             .build();
         if (status != ReservationStatus.RESERVED) {
             reservation.updateStatus(status);

@@ -91,7 +91,7 @@ class OrderServiceTest {
         testProduct1 = createTestProduct(testProductId1, "상품1", 10000L, ProductStatus.ACTIVE);
         testProduct2 = createTestProduct(testProductId2, "상품2", 20000L, ProductStatus.ACTIVE);
         testOrder = createTestOrder(testOrderId, testUserId, 30000L);
-        testUserCoupon = createTestUserCoupon(testUserCouponId, testUserId, testCouponId,
+        testUserCoupon = createTestUserCoupon(testUserCouponId, testUserId, testCoupon,
             LocalDateTime.now().plusDays(30));
         testCoupon = createTestCoupon(testCouponId, "테스트 쿠폰", 3000L, 10000L);
     }
@@ -102,7 +102,7 @@ class OrderServiceTest {
             .id(id)
             .name(name)
             .price(Money.of(price))
-            .status(status)
+            .productStatus(status)
             .build();
     }
 
@@ -117,12 +117,12 @@ class OrderServiceTest {
             .build();
     }
 
-    private UserCoupon createTestUserCoupon(Long id, Long userId, Long couponId,
+    private UserCoupon createTestUserCoupon(Long id, Long userId, Coupon coupon,
         LocalDateTime expiresAt) {
         return UserCoupon.builder()
             .id(id)
             .userId(userId)
-            .couponId(couponId)
+            .coupon(coupon)
             .expiresAt(expiresAt)
             .build();
     }
@@ -132,9 +132,9 @@ class OrderServiceTest {
         return Coupon.builder()
             .id(id)
             .name(name)
-            .discountValue(DiscountValue.fixed(Money.of(discountAmount)))
+            .discountValue(DiscountValue.fixed(discountAmount))
             .quantity(CouponQuantity.of(100))
-            .validPeriod(ValidPeriod.of(LocalDate.now(), LocalDate.now().plusDays(30)))
+            .validPeriod(ValidPeriod.of(LocalDateTime.now(), LocalDateTime.now().plusDays(30)))
             .minOrderAmount(Money.of(minOrderAmount))
             .build();
     }
@@ -264,7 +264,7 @@ class OrderServiceTest {
         @DisplayName("쿠폰 소유자와 주문자가 다르면 예외가 발생한다")
         void applyCoupon_UserMismatch() {
             // given
-            UserCoupon otherUserCoupon = createTestUserCoupon(testUserCouponId, 999L, testCouponId,
+            UserCoupon otherUserCoupon = createTestUserCoupon(testUserCouponId, 999L, testCoupon,
                 LocalDateTime.now().plusDays(30));
 
             given(orderRepository.findByIdOrElseThrow(testOrderId)).willReturn(testOrder);
