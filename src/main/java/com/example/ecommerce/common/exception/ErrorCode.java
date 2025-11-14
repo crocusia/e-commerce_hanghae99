@@ -30,6 +30,9 @@ public enum ErrorCode {
     COUPON_EXPIRED("COUPON_004", HttpStatus.GONE, "만료된 쿠폰입니다."),
     COUPON_NOT_AVAILABLE("COUPON_005", HttpStatus.CONFLICT, "사용할 수 없는 쿠폰입니다."),
 
+    //UserCoupon
+    USER_COUPON_NOT_FOUND("USER_COUPON_001", HttpStatus.NOT_FOUND, "사용자의 쿠폰을 찾을 수 없습니다."),
+
     // Order
     ORDER_NOT_FOUND("ORDER_001", HttpStatus.NOT_FOUND, "주문을 찾을 수 없습니다."),
     ORDER_ALREADY_COMPLETED("ORDER_002", HttpStatus.CONFLICT, "이미 완료된 주문입니다."),
