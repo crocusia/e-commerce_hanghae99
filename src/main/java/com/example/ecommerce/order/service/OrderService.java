@@ -21,6 +21,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -33,6 +34,7 @@ public class OrderService {
     private final UserCouponRepository userCouponRepository;
     private final CouponRepository couponRepository;
 
+    @Transactional
     public OrderResponse createOrder(OrderRequest request) {
         List<OrderItem> orderItems = new ArrayList<>();
         //상품 스냅샷
@@ -53,6 +55,8 @@ public class OrderService {
 
         Order order = Order.create(request.userId(), orderItems);
         Order savedOrder = orderRepository.save(order);
+
+        savedOrder = orderRepository.save(savedOrder);
 
         //상품 예약
         try {
@@ -84,6 +88,7 @@ public class OrderService {
         return OrderResponse.from(savedOrder);
     }
 
+    @Transactional
     public OrderResponse applyCoupon(Long orderId, Long userCouponId) {
         Order order = orderRepository.findByIdOrElseThrow(orderId);
         UserCoupon userCoupon = userCouponRepository.findByIdOrElseThrow(userCouponId);
@@ -96,7 +101,7 @@ public class OrderService {
             throw new CustomException(ErrorCode.COUPON_NOT_AVAILABLE);
         }
 
-        Coupon coupon = couponRepository.findByIdOrElseThrow(userCoupon.getCouponId());
+        Coupon coupon = couponRepository.findByIdOrElseThrow(userCoupon.getCoupon().getId());
 
         Money orderAmount = Money.of(order.getTotalAmount());
         Money discountAmount = coupon.calculateDiscountAmount(orderAmount);
@@ -111,6 +116,7 @@ public class OrderService {
         return OrderResponse.from(savedOrder);
     }
 
+    @Transactional(readOnly = true)
     public OrderResponse getOrder(Long orderId) {
         Order order = orderRepository.findByIdOrElseThrow(orderId);
         return OrderResponse.from(order);
