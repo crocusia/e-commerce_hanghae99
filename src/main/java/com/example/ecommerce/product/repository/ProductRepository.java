@@ -8,7 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface ProductRepository {
-    Page<Product> findByStatus(ProductStatus status, Pageable pageable);
+    Page<Product> findByProductStatus(ProductStatus status, Pageable pageable);
 
     Optional<Product> findById(Long id);
 
@@ -17,4 +17,6 @@ public interface ProductRepository {
     Product save(Product product);
 
     List<Product> findAllByIds(List<Long> productIds);
+
+    void deleteAllInBatch();
 }
