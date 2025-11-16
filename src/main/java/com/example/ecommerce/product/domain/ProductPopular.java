@@ -1,26 +1,51 @@
 package com.example.ecommerce.product.domain;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Entity
+@Table(name = "product_populars")
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@Builder
 public class ProductPopular {
 
-    private final Long id;
-    private final Long productId;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "product_id", nullable = false)
+    private Long productId;
+
+    @Column(name = "sales_count", nullable = false)
     private long salesCount;
-    private final int rank;
+
+    @Column(name = "product_rank", nullable = false)
+    private int rank;
+
+    @Column(name = "last_aggregated_at")
     private LocalDateTime lastAggregatedAt;
 
-    @Builder
-    private ProductPopular(Long id, Long productId, long salesCount, int rank) {
-        this.id = id;
-        this.productId = productId;
-        this.salesCount = salesCount;
-        this.rank = rank;
-        this.lastAggregatedAt = LocalDateTime.now();
+    public static ProductPopular create(Long productId, long salesCount, int rank) {
+        return ProductPopular.builder()
+            .productId(productId)
+            .salesCount(salesCount)
+            .rank(rank)
+            .lastAggregatedAt(LocalDateTime.now())
+            .build();
     }
 
     public boolean isTopN(int topN) {

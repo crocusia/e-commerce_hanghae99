@@ -13,6 +13,7 @@ import com.example.ecommerce.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -24,6 +25,7 @@ public class PaymentService {
     private final UserRepository userRepository;
     private final StockService stockService;
 
+    @Transactional
     public PaymentResponse processPayment(Long userId, Long orderId) {
 
         Order order = orderRepository.findByIdOrElseThrow(orderId);

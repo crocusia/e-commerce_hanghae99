@@ -9,4 +9,6 @@ public interface UserRepository {
     User findByIdOrElseThrow(Long id);
 
     User save(User user);
+
+    void deleteAllInBatch();
 }

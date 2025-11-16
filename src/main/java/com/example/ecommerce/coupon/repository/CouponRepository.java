@@ -16,4 +16,6 @@ public interface CouponRepository {
     Coupon findByIdOrElseThrow(Long id);
 
     List<Coupon> findByStatus(CouponStatus status);
+
+    void deleteAllInBatch();
 }

@@ -5,6 +5,7 @@ import com.example.ecommerce.product.domain.ProductPopular;
 import com.example.ecommerce.product.domain.ProductStock;
 import com.example.ecommerce.product.domain.status.ProductStatus;
 import com.example.ecommerce.product.domain.status.StockStatus;
+import com.example.ecommerce.product.domain.vo.Stock;
 import com.example.ecommerce.product.dto.ProductDetailResponse;
 import com.example.ecommerce.product.dto.ProductRequest;
 import com.example.ecommerce.product.dto.ProductResponse;
@@ -21,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -33,13 +35,14 @@ public class ProductService {
     private final ProductStockRepository stockRepository;
     private final ProductPopularRepository popularRepository;
 
+    @Transactional
     public ProductDetailResponse createProduct(ProductRequest input) {
         Product product = input.toEntity();
         Product savedProduct = productRepository.save(product);
 
         ProductStock productStock = ProductStock.builder()
             .id(savedProduct.getProductId())
-            .stock(input.stock())
+            .currentStock(Stock.of(input.stock()))
             .build();
         ProductStock savedProductStock = stockRepository.save(productStock);
         StockStatus status = productStock.getStockStatus(LOW_STOCK_THRESHOLD);
@@ -47,11 +50,13 @@ public class ProductService {
         return ProductDetailResponse.from(savedProduct, status, savedProductStock);
     }
 
+    @Transactional(readOnly = true)
     public Page<ProductResponse> getActiveProducts(Pageable pageable) {
-        Page<Product> products = productRepository.findByStatus(ProductStatus.ACTIVE, pageable);
+        Page<Product> products = productRepository.findByProductStatus(ProductStatus.ACTIVE, pageable);
         return products.map(ProductResponse::from);
     }
 
+    @Transactional(readOnly = true)
     public ProductDetailResponse getProductDetail(Long id){
         Product result = productRepository.findByIdOrElseThrow(id);
         ProductStock stock = stockRepository.findByIdOrElseThrow(id);
@@ -59,6 +64,7 @@ public class ProductService {
         return ProductDetailResponse.from(result, status, stock);
     }
 
+    @Transactional(readOnly = true)
     public List<ProductResponse> getPopularProducts(int limit) {
         List<ProductPopular> popularProducts = popularRepository.findTopN(limit);
 

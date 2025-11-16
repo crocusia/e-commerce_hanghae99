@@ -8,4 +8,6 @@ public interface ProductPopularRepository {
     ProductPopular save(ProductPopular productPopular);
 
     List<ProductPopular> findTopN(int topN);
+
+    void deleteAllInBatch();
 }

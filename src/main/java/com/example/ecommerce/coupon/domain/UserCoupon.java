@@ -1,31 +1,47 @@
 package com.example.ecommerce.coupon.domain;
 
+import com.example.ecommerce.common.domain.BaseEntity;
 import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.common.exception.ErrorCode;
 import com.example.ecommerce.coupon.domain.status.UserCouponStatus;
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import lombok.Builder;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
+@Entity
+@Table(name = "user_coupons")
 @Getter
-public class UserCoupon {
-    private final Long id;
-    private final Long userId;
-    private final Long couponId;
-    private UserCouponStatus status;
-    private LocalDateTime usedAt;
-    private final LocalDateTime createdAt;
-    private final LocalDateTime expiresAt;
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@SuperBuilder
+public class UserCoupon extends BaseEntity {
 
-    @Builder
-    private UserCoupon(Long id, Long userId, Long couponId, LocalDateTime expiresAt) {
-        this.id = id;
-        this.userId = userId;
-        this.couponId = couponId;
-        this.status = UserCouponStatus.UNUSED;
-        this.usedAt = null;
-        this.createdAt = LocalDateTime.now();
-        this.expiresAt = expiresAt;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "coupon_id", insertable = false, updatable = false)
+    private Coupon coupon;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private UserCouponStatus status;
+
+    @Column(name = "used_at")
+    private LocalDateTime usedAt;
+
+    @Column(name = "expires_at", nullable = false)
+    private LocalDateTime expiresAt;
+
+    public static UserCoupon create(Long userId, Coupon coupon){
+        return UserCoupon.builder()
+            .userId(userId)
+            .coupon(coupon)
+            .status(UserCouponStatus.UNUSED)
+            .expiresAt(coupon.getValidPeriod().getValidUntil())
+            .build();
     }
 
     public void use() {

@@ -4,8 +4,12 @@ import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.common.exception.ErrorCode;
 import com.example.ecommerce.coupon.domain.Coupon;
 import com.example.ecommerce.coupon.domain.status.CouponStatus;
+import com.example.ecommerce.coupon.domain.vo.CouponQuantity;
+import com.example.ecommerce.coupon.domain.vo.DiscountValue;
+import com.example.ecommerce.coupon.domain.vo.ValidPeriod;
 import com.example.ecommerce.coupon.dto.CouponResponse;
 import com.example.ecommerce.coupon.repository.CouponRepository;
+import com.example.ecommerce.product.domain.vo.Money;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,7 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 
@@ -45,11 +49,10 @@ class CouponServiceTest {
         return Coupon.builder()
             .id(id)
             .name(name)
-            .discountValue(com.example.ecommerce.coupon.domain.vo.DiscountValue.fixed(
-                com.example.ecommerce.product.domain.vo.Money.of(discountPrice)))
+            .discountValue(com.example.ecommerce.coupon.domain.vo.DiscountValue.fixed(discountPrice))
             .quantity(com.example.ecommerce.coupon.domain.vo.CouponQuantity.of(quantity))
             .validPeriod(com.example.ecommerce.coupon.domain.vo.ValidPeriod.of(
-                LocalDate.now(), LocalDate.now().plusDays(30)))
+                LocalDateTime.now(), LocalDateTime.now().plusDays(30)))
             .minOrderAmount(com.example.ecommerce.product.domain.vo.Money.of(10000L))
             .build();
     }
@@ -58,11 +61,11 @@ class CouponServiceTest {
         return Coupon.builder()
             .id(id)
             .name(name)
-            .discountValue(com.example.ecommerce.coupon.domain.vo.DiscountValue.percentage(discountRate))
-            .quantity(com.example.ecommerce.coupon.domain.vo.CouponQuantity.of(quantity))
-            .validPeriod(com.example.ecommerce.coupon.domain.vo.ValidPeriod.of(
-                LocalDate.now(), LocalDate.now().plusDays(30)))
-            .minOrderAmount(com.example.ecommerce.product.domain.vo.Money.of(10000L))
+            .discountValue(DiscountValue.percentage(discountRate))
+            .quantity(CouponQuantity.of(quantity))
+            .validPeriod(ValidPeriod.of(
+                LocalDateTime.now(), LocalDateTime.now().plusDays(30)))
+            .minOrderAmount(Money.of(10000L))
             .build();
     }
 
@@ -208,11 +211,10 @@ class CouponServiceTest {
         Coupon expiredCoupon = Coupon.builder()
             .id(testCouponId)
             .name("만료된 쿠폰")
-            .discountValue(com.example.ecommerce.coupon.domain.vo.DiscountValue.fixed(
-                com.example.ecommerce.product.domain.vo.Money.of(5000L)))
+            .discountValue(com.example.ecommerce.coupon.domain.vo.DiscountValue.fixed(5000L))
             .quantity(com.example.ecommerce.coupon.domain.vo.CouponQuantity.of(100))
             .validPeriod(com.example.ecommerce.coupon.domain.vo.ValidPeriod.of(
-                LocalDate.now().minusDays(30), LocalDate.now().minusDays(1)))
+                LocalDateTime.now().minusDays(30), LocalDateTime.now().minusDays(1)))
             .minOrderAmount(com.example.ecommerce.product.domain.vo.Money.of(10000L))
             .build();
 

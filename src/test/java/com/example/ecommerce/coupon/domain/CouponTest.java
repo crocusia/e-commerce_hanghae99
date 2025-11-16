@@ -4,10 +4,9 @@ import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.coupon.domain.status.CouponStatus;
 import com.example.ecommerce.coupon.domain.status.DiscountType;
 import com.example.ecommerce.product.domain.vo.Money;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -23,8 +22,8 @@ class CouponTest {
             "5000원 할인 쿠폰",
             5000L,
             100,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
+            LocalDateTime.now(),
+            LocalDateTime.now().plusDays(30),
             10000L
         );
 
@@ -32,7 +31,7 @@ class CouponTest {
         assertThat(coupon).isNotNull();
         assertThat(coupon.getName()).isEqualTo("5000원 할인 쿠폰");
         assertThat(coupon.getDiscountValue().getDiscountType()).isEqualTo(DiscountType.FIXED);
-        assertThat(coupon.getDiscountValue().getDiscountPrice()).isEqualTo(Money.of(5000L));
+        assertThat(coupon.getDiscountValue().getDiscountPrice()).isEqualTo(5000L);
         assertThat(coupon.getQuantity().getTotalQuantity()).isEqualTo(100);
         assertThat(coupon.getQuantity().getIssuedQuantity()).isEqualTo(0);
         assertThat(coupon.getStatus()).isEqualTo(CouponStatus.ACTIVE);
@@ -46,8 +45,8 @@ class CouponTest {
             "10% 할인 쿠폰",
             10.0,
             50,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
+            LocalDateTime.now(),
+            LocalDateTime.now().plusDays(30),
             20000L
         );
 
@@ -65,8 +64,8 @@ class CouponTest {
             "테스트 쿠폰",
             5000L,
             100,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
+            LocalDateTime.now(),
+            LocalDateTime.now().plusDays(30),
             0L
         );
 
@@ -85,8 +84,8 @@ class CouponTest {
             "테스트 쿠폰",
             5000L,
             2,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
+            LocalDateTime.now(),
+            LocalDateTime.now().plusDays(30),
             0L
         );
 
@@ -105,8 +104,8 @@ class CouponTest {
             "테스트 쿠폰",
             5000L,
             100,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
+            LocalDateTime.now(),
+            LocalDateTime.now().plusDays(30),
             0L
         );
 
@@ -128,8 +127,8 @@ class CouponTest {
             "만료된 쿠폰",
             5000L,
             100,
-            LocalDate.now().minusDays(30),
-            LocalDate.now().minusDays(1),
+            LocalDateTime.now().minusDays(30),
+            LocalDateTime.now().minusDays(1),
             0L
         );
 
@@ -145,8 +144,8 @@ class CouponTest {
             "비활성 쿠폰",
             5000L,
             100,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
+            LocalDateTime.now(),
+            LocalDateTime.now().plusDays(30),
             0L
         );
         coupon.deactivate();
@@ -163,8 +162,8 @@ class CouponTest {
             "5000원 할인",
             5000L,
             100,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
+            LocalDateTime.now(),
+            LocalDateTime.now().plusDays(30),
             10000L
         );
 
@@ -183,8 +182,8 @@ class CouponTest {
             "10% 할인",
             10.0,
             100,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
+            LocalDateTime.now(),
+            LocalDateTime.now().plusDays(30),
             20000L
         );
 
@@ -203,8 +202,8 @@ class CouponTest {
             "5000원 할인",
             5000L,
             100,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
+            LocalDateTime.now(),
+            LocalDateTime.now().plusDays(30),
             10000L
         );
 
@@ -222,8 +221,8 @@ class CouponTest {
             "유효한 쿠폰",
             5000L,
             100,
-            LocalDate.now().minusDays(1),
-            LocalDate.now().plusDays(30),
+            LocalDateTime.now().minusDays(1),
+            LocalDateTime.now().plusDays(30),
             0L
         );
 
@@ -231,8 +230,8 @@ class CouponTest {
             "만료된 쿠폰",
             5000L,
             100,
-            LocalDate.now().minusDays(30),
-            LocalDate.now().minusDays(1),
+            LocalDateTime.now().minusDays(30),
+            LocalDateTime.now().minusDays(1),
             0L
         );
 
@@ -249,8 +248,8 @@ class CouponTest {
             "테스트 쿠폰",
             5000L,
             100,
-            LocalDate.now(),
-            LocalDate.now().plusDays(30),
+            LocalDateTime.now(),
+            LocalDateTime.now().plusDays(30),
             0L
         );
 

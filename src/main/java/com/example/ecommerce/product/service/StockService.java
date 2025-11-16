@@ -13,6 +13,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -23,6 +24,7 @@ public class StockService {
     private final ProductStockRepository stockRepository;
     private final StockReservationRepository reservationRepository;
 
+    @Transactional
     public StockReservation reserve(Long orderId, Long productId, int quantity) {
         ProductStock stock = stockRepository
             .findByIdOrElseThrow(productId);
@@ -35,7 +37,7 @@ public class StockService {
             .orderId(orderId)
             .productId(productId)
             .quantity(quantity)
-            .ttl(Duration.ofMinutes(RESERVATION_TIME_THRESHOLD))
+            .expiresAt(LocalDateTime.now().plusMinutes(RESERVATION_TIME_THRESHOLD))
             .build();
 
         stock.increaseReservedStock(quantity);
@@ -43,6 +45,7 @@ public class StockService {
         return reservationRepository.save(reservation);
     }
 
+    @Transactional
     public void confirm(Long orderId) {
         List<StockReservation> reservations =
             reservationRepository.findPendingByOrderId(orderId);
@@ -60,6 +63,7 @@ public class StockService {
         });
     }
 
+    @Transactional
     public void release(Long orderId) {
         List<StockReservation> reservations =
             reservationRepository.findPendingByOrderId(orderId);
@@ -76,6 +80,7 @@ public class StockService {
         });
     }
 
+    @Transactional
     public void expireReservations() {
         List<StockReservation> expired =
             reservationRepository.findExpiredReservations(LocalDateTime.now());

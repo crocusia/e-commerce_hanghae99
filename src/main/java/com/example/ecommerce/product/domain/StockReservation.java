@@ -1,36 +1,56 @@
 package com.example.ecommerce.product.domain;
 
+import com.example.ecommerce.common.domain.BaseEntity;
 import com.example.ecommerce.product.domain.status.ReservationStatus;
-import java.time.Duration;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
-import lombok.Builder;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
+@Entity
+@Table(name = "stock_reservations")
 @Getter
-public class StockReservation {
-    private final Long id;
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@SuperBuilder
+public class StockReservation extends BaseEntity {
 
-    private final Long orderId;
-    private final Long productId;
-    private final int quantity;
+    @Column(name = "order_id", nullable = false)
+    private Long orderId;
 
+    @Column(name = "product_id", nullable = false)
+    private Long productId;
+
+    @Column(name = "quantity", nullable = false)
+    private int quantity;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
     private ReservationStatus status;
 
-    private final LocalDateTime reservedAt;
+    @Column(name = "expires_at")
     private LocalDateTime expiresAt;
+
+    @Column(name = "confirmed_at")
     private LocalDateTime confirmedAt;
 
+    public static StockReservation create(Long orderId, Long productId, int quantity, LocalDateTime expiresAt) {
+        return StockReservation.builder()
+            .orderId(orderId)
+            .productId(productId)
+            .quantity(quantity)
+            .status(ReservationStatus.RESERVED)
+            .expiresAt(expiresAt)
+            .build();
+    }
 
-    @Builder
-    private StockReservation(Long id, Long orderId, Long productId, int quantity, Duration ttl) {
-        this.id = id;
-        this.orderId = orderId;
-        this.productId = productId;
-        this.quantity = quantity;
-        this.status = ReservationStatus.RESERVED;
-        this.reservedAt = LocalDateTime.now();
-        this.expiresAt = LocalDateTime.now().plus(ttl);
-        this.confirmedAt = null;
+    public LocalDateTime getReservedAt() {
+        return getCreatedAt();
     }
 
     public void updateStatus(ReservationStatus status){

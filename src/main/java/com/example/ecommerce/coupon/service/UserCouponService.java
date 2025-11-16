@@ -8,10 +8,13 @@ import com.example.ecommerce.coupon.domain.UserCoupon;
 import com.example.ecommerce.coupon.dto.UserCouponResponse;
 import com.example.ecommerce.coupon.repository.CouponRepository;
 import com.example.ecommerce.coupon.repository.UserCouponRepository;
+import com.example.ecommerce.user.domain.User;
+import com.example.ecommerce.user.repository.UserRepository;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,8 +26,10 @@ public class UserCouponService {
 
     private final CouponRepository couponRepository;
     private final UserCouponRepository userCouponRepository;
+    private final UserRepository userRepository;
 
     @PessimisticLock(key = "#couponId")
+    @Transactional
     public UserCouponResponse issueCoupon(long couponId, Long userId) {
         log.info("쿠폰 발급 시작 - couponId: {}, userId: {}", couponId, userId);
 
@@ -38,10 +43,12 @@ public class UserCouponService {
         coupon.issue();
         couponRepository.save(coupon);
 
+        User user = userRepository.findByIdOrElseThrow(userId);
+
         UserCoupon userCoupon = UserCoupon.builder()
             .userId(userId)
-            .couponId(coupon.getId())
-            .expiresAt(coupon.getValidPeriod().getValidUntil().atStartOfDay())
+            .coupon(coupon)
+            .expiresAt(coupon.getValidPeriod().getValidUntil())
             .build();
 
         UserCoupon savedUserCoupon = userCouponRepository.save(userCoupon);
@@ -51,18 +58,20 @@ public class UserCouponService {
         return UserCouponResponse.from(savedUserCoupon, coupon);
     }
 
+    @Transactional(readOnly = true)
     public List<UserCouponResponse> getAvailableUserCoupons(Long userId) {
         List<UserCoupon> userCoupons = userCouponRepository.findByUserId(userId);
 
         return userCoupons.stream()
             .filter(UserCoupon::canUse)
             .map(userCoupon -> {
-                Coupon coupon = couponRepository.findByIdOrElseThrow(userCoupon.getCouponId());
+                Coupon coupon = couponRepository.findByIdOrElseThrow(userCoupon.getCoupon().getId());
                 return UserCouponResponse.from(userCoupon, coupon);
             })
             .collect(Collectors.toList());
     }
 
+    @Transactional
     public UserCouponResponse useCoupon(Long userCouponId) {
 
         UserCoupon userCoupon = userCouponRepository.findByIdOrElseThrow(userCouponId);
@@ -70,15 +79,16 @@ public class UserCouponService {
         userCoupon.use();
         UserCoupon usedCoupon = userCouponRepository.save(userCoupon);
 
-        Coupon coupon = couponRepository.findByIdOrElseThrow(usedCoupon.getCouponId());
+        Coupon coupon = couponRepository.findByIdOrElseThrow(usedCoupon.getCoupon().getId());
 
         return UserCouponResponse.from(usedCoupon, coupon);
     }
 
+    @Transactional(readOnly = true)
     public UserCouponResponse getUserCoupon(Long userCouponId) {
         UserCoupon userCoupon = userCouponRepository.findByIdOrElseThrow(userCouponId);
 
-        Coupon coupon = couponRepository.findByIdOrElseThrow(userCoupon.getCouponId());
+        Coupon coupon = couponRepository.findByIdOrElseThrow(userCoupon.getCoupon().getId());
 
         return UserCouponResponse.from(userCoupon, coupon);
     }

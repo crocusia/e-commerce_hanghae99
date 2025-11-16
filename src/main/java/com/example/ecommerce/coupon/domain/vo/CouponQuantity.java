@@ -2,13 +2,18 @@ package com.example.ecommerce.coupon.domain.vo;
 
 import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.common.exception.ErrorCode;
+import jakarta.persistence.Embeddable;
 import java.util.Objects;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Embeddable
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CouponQuantity {
 
-    private final int totalQuantity;      // 총 발급 수량
+    private int totalQuantity;      // 총 발급 수량
     private int issuedQuantity;     // 현재 발급된 수량
 
     private CouponQuantity(int totalQuantity, int issuedQuantity) {

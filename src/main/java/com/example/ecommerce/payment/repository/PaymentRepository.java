@@ -9,4 +9,6 @@ public interface PaymentRepository {
     Optional<Payment> findById(Long id);
 
     Payment findByIdOrElseThrow(Long id);
+
+    void deleteAllInBatch();
 }

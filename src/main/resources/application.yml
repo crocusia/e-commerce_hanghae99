@@ -4,7 +4,14 @@ server:
 spring:
   application:
     name: ecommerce-api
-
+  datasource:
+    url: jdbc:mysql://localhost:3399/ecommerce?permitMysqlHostAuth=true
+    username: root
+    password: hh99root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
 # Swagger UI 설정
 springdoc:
   api-docs:
