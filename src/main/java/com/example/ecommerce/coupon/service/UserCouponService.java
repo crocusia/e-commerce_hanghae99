@@ -71,6 +71,25 @@ public class UserCouponService {
             .collect(Collectors.toList());
     }
 
+
+    @Transactional
+    public void reserveCoupon(Long userId, Long userCouponId) {
+        log.info("쿠폰 예약 시작 - userId: {}, userCouponId: {}", userId, userCouponId);
+
+        UserCoupon userCoupon = userCouponRepository.findByIdOrElseThrow(userCouponId);
+
+        // 소유자 검증
+        if (!userCoupon.getUserId().equals(userId)) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "본인의 쿠폰만 사용할 수 있습니다.");
+        }
+
+        // 쿠폰 유효성 검증 및 예약
+        userCoupon.reserve();
+        userCouponRepository.save(userCoupon);
+
+        log.info("쿠폰 예약 완료 - userCouponId: {}", userCouponId);
+    }
+
     @Transactional
     public UserCouponResponse useCoupon(Long userCouponId) {
 
