@@ -1,5 +1,7 @@
 package com.example.ecommerce.order.service;
 
+import com.example.ecommerce.common.aop.OptimisticLock;
+import com.example.ecommerce.common.event.MessagePublisher;
 import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.common.exception.ErrorCode;
 import com.example.ecommerce.coupon.domain.Coupon;
@@ -11,6 +13,7 @@ import com.example.ecommerce.order.domain.OrderItem;
 import com.example.ecommerce.order.dto.OrderItemRequest;
 import com.example.ecommerce.order.dto.OrderRequest;
 import com.example.ecommerce.order.dto.OrderResponse;
+import com.example.ecommerce.order.event.OrderCreatedEvent;
 import com.example.ecommerce.order.repository.OrderRepository;
 import com.example.ecommerce.product.domain.Product;
 import com.example.ecommerce.product.domain.vo.Money;
@@ -30,20 +33,20 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
-    private final StockService stockService;
     private final UserCouponRepository userCouponRepository;
     private final CouponRepository couponRepository;
 
     @Transactional
-    public OrderResponse createOrder(OrderRequest request) {
+    public Order createOrderEntity(OrderRequest request) {
         List<OrderItem> orderItems = new ArrayList<>();
-        //상품 스냅샷
+
         for (OrderItemRequest itemRequest : request.orderItems()) {
             Product product = productRepository.findByIdOrElseThrow(itemRequest.productId());
 
             if (!product.isAvailable()) {
                 throw new CustomException(ErrorCode.INVALID_PRODUCT_STATUS);
             }
+
             OrderItem orderItem = OrderItem.create(
                 product.getProductId(),
                 product.getName(),
@@ -54,52 +57,33 @@ public class OrderService {
         }
 
         Order order = Order.create(request.userId(), orderItems);
-        Order savedOrder = orderRepository.save(order);
 
-        savedOrder = orderRepository.save(savedOrder);
-
-        //상품 예약
-        try {
-            for (OrderItemRequest itemRequest : request.orderItems()) {
-                stockService.reserve(
-                    savedOrder.getId(),
-                    itemRequest.productId(),
-                    itemRequest.quantity()
-                );
-            }
-        } catch (CustomException e) {
-            //예약 실패 시 이미 예약한 재고 해제 및 주문 삭제
-            try {
-                stockService.release(savedOrder.getId());
-            } catch (Exception releaseException) {
-                log.error("Failed to release stock reservations for order: {}",
-                    savedOrder.getId(), releaseException);
-            }
-
-            try {
-                orderRepository.delete(savedOrder.getId());
-            } catch (Exception deleteException) {
-                log.error("Failed to delete order: {}", savedOrder.getId(), deleteException);
-            }
-
-            throw e;
-        }
-        //주문 응답 반환
-        return OrderResponse.from(savedOrder);
+        return orderRepository.save(order);
     }
 
+    @OptimisticLock(maxRetries = 3, retryDelay = 100)
     @Transactional
     public OrderResponse applyCoupon(Long orderId, Long userCouponId) {
+        log.info("쿠폰 적용 시작 - orderId: {}, userCouponId: {}", orderId, userCouponId);
+
         Order order = orderRepository.findByIdOrElseThrow(orderId);
+
+        // 기존 쿠폰이 있으면 복원
+        Long previousCouponId = order.cancelCoupon();
+        if (previousCouponId != null) {
+            UserCoupon previousCoupon = userCouponRepository.findByIdOrElseThrow(previousCouponId);
+            previousCoupon.cancelReservation();
+            userCouponRepository.save(previousCoupon);
+        }
+
+        // 사용자 쿠폰 조회 (낙관적 락으로 조회)
         UserCoupon userCoupon = userCouponRepository.findByIdOrElseThrow(userCouponId);
 
         if (!userCoupon.getUserId().equals(order.getUserId())) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "본인의 쿠폰만 사용할 수 있습니다.");
         }
 
-        if (!userCoupon.canUse()) {
-            throw new CustomException(ErrorCode.COUPON_NOT_AVAILABLE);
-        }
+        userCoupon.reserve();
 
         Coupon coupon = couponRepository.findByIdOrElseThrow(userCoupon.getCoupon().getId());
 
@@ -108,10 +92,11 @@ public class OrderService {
 
         order.applyCoupon(userCouponId, discountAmount.getAmount());
 
-        userCoupon.use();
-
         Order savedOrder = orderRepository.save(order);
         userCouponRepository.save(userCoupon);
+
+        log.info("쿠폰 적용 완료 - orderId: {}, userCouponId: {}, discountAmount: {}",
+            orderId, userCouponId, discountAmount.getAmount());
 
         return OrderResponse.from(savedOrder);
     }

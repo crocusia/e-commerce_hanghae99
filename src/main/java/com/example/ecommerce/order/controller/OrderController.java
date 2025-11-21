@@ -3,9 +3,13 @@ package com.example.ecommerce.order.controller;
 import com.example.ecommerce.common.dto.PageResponse;
 import com.example.ecommerce.order.dto.OrderRequest;
 import com.example.ecommerce.order.dto.OrderResponse;
+import com.example.ecommerce.order.orchestrator.OrderCreationOrchestrator;
 import com.example.ecommerce.payment.dto.PaymentRequest;
+import com.example.ecommerce.payment.dto.PaymentResponse;
+import com.example.ecommerce.payment.orchestrator.PaymentOrchestrator;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -18,7 +22,11 @@ import java.util.List;
 @Validated
 @RestController
 @RequestMapping("/api/orders")
+@RequiredArgsConstructor
 public class OrderController implements OrderApi {
+
+    private final OrderCreationOrchestrator orderCreationOrchestrator;
+    private final PaymentOrchestrator paymentOrchestrator;
 
     @Override
     public ResponseEntity<PageResponse<OrderResponse>> getOrders(
@@ -56,26 +64,17 @@ public class OrderController implements OrderApi {
     public ResponseEntity<OrderResponse> createOrder(
         @RequestBody @Valid OrderRequest request
     ) {
-        //Mock 데이터
-        OrderResponse mockResponse = new OrderResponse(
-            null,
-            null,
-            List.of(),
-            null,
-            null,
-            null,
-            null,
-            null
-        );
-        // TODO: 서비스 레이어 구현 후 연결
-        return ResponseEntity.status(201).body(mockResponse);
+        OrderResponse response = orderCreationOrchestrator.createOrder(request);
+        return ResponseEntity.status(201).body(response);
     }
 
     @Override
     public ResponseEntity<OrderResponse> processPayment(
         @RequestBody @Valid PaymentRequest request
     ) {
-        //Mock 데이터
+        PaymentResponse paymentResponse = paymentOrchestrator.createPayment(request);
+        // TODO: PaymentResponse를 OrderResponse로 변환하거나 API 명세 수정 필요
+        // 임시로 mock 데이터 반환
         OrderResponse mockResponse = new OrderResponse(
             null,
             null,
@@ -86,7 +85,6 @@ public class OrderController implements OrderApi {
             null,
             null
         );
-        // TODO: 서비스 레이어 구현 후 연결
         return ResponseEntity.ok(mockResponse);
     }
 
