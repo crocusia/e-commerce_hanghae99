@@ -71,7 +71,7 @@ class OrderTest {
                 () -> assertThat(order.getTotalAmount()).isEqualTo(40000L),
                 () -> assertThat(order.getDiscountAmount()).isEqualTo(0L),
                 () -> assertThat(order.getFinalAmount()).isEqualTo(40000L),
-                () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING),
+                () -> assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_RESERVATION),
                 () -> assertThat(order.getUserCouponId()).isNull(),
                 () -> assertThat(order.getCreatedAt()).isNotNull(),
                 () -> assertThat(order.getUpdatedAt()).isNotNull()
@@ -264,6 +264,83 @@ class OrderTest {
     }
 
     @Nested
+    @DisplayName("결제 유효성 검증 테스트")
+    class ValidateForPaymentTest {
+
+        @Test
+        @DisplayName("PENDING 상태에서 결제 검증이 성공한다")
+        void validateForPaymentInPendingStatus() {
+            // given
+            Order order = createDefaultOrder();
+            order.completeReservation();
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
+
+            // when & then - 예외가 발생하지 않아야 함
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> order.validateForPayment());
+        }
+
+        @Test
+        @DisplayName("PENDING_RESERVATION 상태에서 결제 검증 시 예외가 발생한다")
+        void validateForPaymentInPendingReservationStatus() {
+            // given
+            Order order = createDefaultOrder();
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_RESERVATION);
+
+            // when & then
+            assertThrowsCustomException(
+                ErrorCode.INVALID_ORDER_STATUS_PROCESS_PAYMENT,
+                () -> order.validateForPayment()
+            );
+        }
+
+        @Test
+        @DisplayName("PAYMENT_COMPLETED 상태에서 결제 검증 시 예외가 발생한다")
+        void validateForPaymentInPaymentCompletedStatus() {
+            // given
+            Order order = createDefaultOrder();
+            order.completeReservation();
+            order.completePayment();
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PAYMENT_COMPLETED);
+
+            // when & then
+            assertThrowsCustomException(
+                ErrorCode.INVALID_ORDER_STATUS_PROCESS_PAYMENT,
+                () -> order.validateForPayment()
+            );
+        }
+
+        @Test
+        @DisplayName("CANCELLED 상태에서 결제 검증 시 예외가 발생한다")
+        void validateForPaymentInCancelledStatus() {
+            // given
+            Order order = createDefaultOrder();
+            order.cancel();
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+
+            // when & then
+            assertThrowsCustomException(
+                ErrorCode.INVALID_ORDER_STATUS_PROCESS_PAYMENT,
+                () -> order.validateForPayment()
+            );
+        }
+
+        @Test
+        @DisplayName("RESERVATION_FAILED 상태에서 결제 검증 시 예외가 발생한다")
+        void validateForPaymentInReservationFailedStatus() {
+            // given
+            Order order = createDefaultOrder();
+            order.failReservation();
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.RESERVATION_FAILED);
+
+            // when & then
+            assertThrowsCustomException(
+                ErrorCode.INVALID_ORDER_STATUS_PROCESS_PAYMENT,
+                () -> order.validateForPayment()
+            );
+        }
+    }
+
+    @Nested
     @DisplayName("결제 완료 테스트")
     class CompletePaymentTest {
 
@@ -300,7 +377,7 @@ class OrderTest {
         void statusChangesAfterCompletePayment() {
             // given
             Order order = createDefaultOrder();
-            assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_RESERVATION);
 
             // when
             order.completePayment();
@@ -347,7 +424,7 @@ class OrderTest {
         void statusChangesAfterCancel() {
             // given
             Order order = createDefaultOrder();
-            assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_RESERVATION);
 
             // when
             order.cancel();
