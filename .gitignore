@@ -48,3 +48,9 @@ bin/
 
 # Node
 node_modules/
+
+## Application
+/src/main/resources/application.yml
+
+## Docker
+docker-compose.yml
