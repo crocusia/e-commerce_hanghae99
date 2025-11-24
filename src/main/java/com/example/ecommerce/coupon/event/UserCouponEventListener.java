@@ -9,6 +9,7 @@ import com.example.ecommerce.payment.event.PaymentCompletedEvent;
 import com.example.ecommerce.payment.event.PaymentFailedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,13 +19,13 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@org.springframework.core.annotation.Order(3)  // 마지막으로 실행
 public class UserCouponEventListener {
 
     private final UserCouponService userCouponService;
     private final UserCouponRepository userCouponRepository;
     private final OrderRepository orderRepository;
 
+    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handlePaymentCompleted(PaymentCompletedEvent event) {
@@ -48,6 +49,7 @@ public class UserCouponEventListener {
         }
     }
 
+    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handlePaymentFailed(PaymentFailedEvent event) {

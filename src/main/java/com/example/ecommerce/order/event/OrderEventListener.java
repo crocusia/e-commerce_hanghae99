@@ -8,6 +8,7 @@ import com.example.ecommerce.product.event.ReservationCompletedEvent;
 import com.example.ecommerce.product.event.ReservationFailedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +18,6 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@org.springframework.core.annotation.Order(2)
 public class OrderEventListener {
 
     private final OrderRepository orderRepository;
@@ -59,6 +59,7 @@ public class OrderEventListener {
         }
     }
 
+    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handlePaymentCompleted(PaymentCompletedEvent event) {
@@ -76,6 +77,7 @@ public class OrderEventListener {
         }
     }
 
+    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handlePaymentFailed(PaymentFailedEvent event) {

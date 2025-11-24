@@ -7,6 +7,7 @@ import com.example.ecommerce.payment.event.PaymentFailedEvent;
 import com.example.ecommerce.product.service.StockService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +17,6 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@org.springframework.core.annotation.Order(1)  // 가장 먼저 실행
 public class StockEventListener {
 
     private final StockService stockService;
@@ -51,6 +51,7 @@ public class StockEventListener {
         }
     }
 
+    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handlePaymentCompleted(PaymentCompletedEvent event) {
@@ -66,6 +67,7 @@ public class StockEventListener {
         }
     }
 
+    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handlePaymentFailed(PaymentFailedEvent event) {
