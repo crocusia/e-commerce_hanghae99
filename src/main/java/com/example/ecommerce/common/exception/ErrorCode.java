@@ -38,6 +38,7 @@ public enum ErrorCode {
     ORDER_ALREADY_COMPLETED("ORDER_002", HttpStatus.CONFLICT, "이미 완료된 주문입니다."),
     ORDER_ALREADY_CANCELLED("ORDER_003", HttpStatus.CONFLICT, "이미 취소된 주문입니다."),
     INVALID_ORDER_STATUS_APPLY_COUPON("ORDER_004",HttpStatus.BAD_REQUEST, "쿠폰을 변경할 수 없는 주문 상태입니다."),
+    INVALID_ORDER_STATUS_PROCESS_PAYMENT("ORDER_005", HttpStatus.BAD_REQUEST, "결제를 진행할 수 없는 주문 상태입니다."),
 
     // Payment
     PAYMENT_NOT_FOUND("PAYMENT_001", HttpStatus.NOT_FOUND, "결제를 찾을 수 없습니다."),
@@ -49,7 +50,11 @@ public enum ErrorCode {
     // Lock
     LOCK_ACQUISITION_FAILED("LOCK_001", HttpStatus.CONFLICT, "락 획득에 실패했습니다. 잠시 후 다시 시도해주세요."),
     LOCK_TIMEOUT("LOCK_002", HttpStatus.REQUEST_TIMEOUT, "락 획득 제한 시간을 초과했습니다."),
-    LOCK_INTERRUPTED("LOCK_003", HttpStatus.INTERNAL_SERVER_ERROR, "락 획득 중 인터럽트가 발생했습니다.");
+    LOCK_INTERRUPTED("LOCK_003", HttpStatus.INTERNAL_SERVER_ERROR, "락 획득 중 인터럽트가 발생했습니다."),
+    OPTIMISTIC_LOCK_FAILURE("LOCK_004", HttpStatus.CONFLICT, "락 획득에 실패했습니다. 잠시 후 다시 시도해주세요."),
+
+    EVENT_SERIALIZATION_FAILED("EVENT_001", HttpStatus.CONFLICT, "이벤트 직렬화에 실패했습니다."),
+    EVENT_PUBLISH_FAILED("EVENT_002", HttpStatus.INTERNAL_SERVER_ERROR, "이벤트 발행에 실패했습니다.");
 
     private final String code;
     private final HttpStatus status;

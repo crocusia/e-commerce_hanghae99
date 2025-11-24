@@ -19,4 +19,13 @@ public interface JpaPaymentRepository extends JpaRepository<Payment, Long>, Paym
         return findById(id)
             .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
     }
+
+    @Override
+    Optional<Payment> findByOrderId(Long orderId);
+
+    @Override
+    default Payment findByOrderIdOrElseThrow(Long orderId) {
+        return findByOrderId(orderId)
+            .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
+    }
 }

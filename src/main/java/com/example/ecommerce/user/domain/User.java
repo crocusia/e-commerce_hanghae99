@@ -30,6 +30,10 @@ public class User extends SoftDeleteEntity {
     @Column(name = "status", nullable = false)
     private UserStatus status;
 
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     // static factory method
     public static User create(String name, String email, Long balance) {
         validateBalance(balance);

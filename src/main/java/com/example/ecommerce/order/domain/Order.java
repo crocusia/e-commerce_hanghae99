@@ -44,6 +44,10 @@ public class Order extends BaseEntity {
     @Column(name = "status", nullable = false)
     private OrderStatus status;
 
+    @jakarta.persistence.Version
+    @Column(name = "version")
+    private Long version;
+
     @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
     private List<OrderItem> orderItems = new ArrayList<>();
 
@@ -55,7 +59,7 @@ public class Order extends BaseEntity {
             .totalAmount(totalAmount)
             .discountAmount(0L)
             .finalAmount(totalAmount)
-            .status(OrderStatus.PENDING)
+            .status(OrderStatus.PENDING_RESERVATION)
             .build();
 
         orderItems.forEach(order::addOrderItem);
@@ -71,13 +75,26 @@ public class Order extends BaseEntity {
     }
 
     public void applyCoupon(Long userCouponId, Long discountAmount){
-        if(this.status != OrderStatus.PENDING){
+        if(this.status != OrderStatus.PENDING && this.status != OrderStatus.PENDING_RESERVATION){
             throw new CustomException(ErrorCode.INVALID_ORDER_STATUS_APPLY_COUPON);
         }
 
         applyDiscount(discountAmount);
 
         this.userCouponId = userCouponId;
+    }
+
+    public Long cancelCoupon() {
+        if (this.userCouponId == null) {
+            return null;
+        }
+
+        Long previousCouponId = this.userCouponId;
+        this.userCouponId = null;
+        this.discountAmount = 0L;
+        this.finalAmount = this.totalAmount;
+
+        return previousCouponId;
     }
 
     private void applyDiscount(Long discountAmount) {
@@ -91,12 +108,32 @@ public class Order extends BaseEntity {
         this.finalAmount = this.totalAmount - discountAmount;
     }
 
+    public void validateForPayment() {
+        if (this.status != OrderStatus.PENDING) {
+            throw new CustomException(ErrorCode.INVALID_ORDER_STATUS_PROCESS_PAYMENT);
+        }
+    }
+
+    public void completeReservation() {
+        if (this.status != OrderStatus.PENDING_RESERVATION) {
+            throw new IllegalStateException("예약 완료 처리는 PENDING_RESERVATION 상태에서만 가능합니다.");
+        }
+        this.status = OrderStatus.PENDING;
+    }
+
     public void completePayment() {
         this.status = OrderStatus.PAYMENT_COMPLETED;
     }
 
     public void cancel() {
         this.status = OrderStatus.CANCELLED;
+    }
+
+    public void failReservation() {
+        if (this.status != OrderStatus.PENDING_RESERVATION) {
+            throw new IllegalStateException("예약 실패 처리는 PENDING_RESERVATION 상태에서만 가능합니다.");
+        }
+        this.status = OrderStatus.RESERVATION_FAILED;
     }
 
     public List<OrderItem> getOrderItems() {

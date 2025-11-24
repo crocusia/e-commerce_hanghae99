@@ -15,9 +15,8 @@ import com.example.ecommerce.order.domain.Order;
 import com.example.ecommerce.order.domain.OrderItem;
 import com.example.ecommerce.order.repository.OrderRepository;
 import com.example.ecommerce.payment.domain.Payment;
-import com.example.ecommerce.payment.dto.PaymentResponse;
+import com.example.ecommerce.payment.dto.PaymentResult;
 import com.example.ecommerce.payment.repository.PaymentRepository;
-import com.example.ecommerce.product.service.StockService;
 import com.example.ecommerce.user.domain.User;
 import com.example.ecommerce.user.repository.UserRepository;
 import java.util.Arrays;
@@ -42,9 +41,6 @@ class PaymentServiceTest {
 
     @Mock
     private UserRepository userRepository;
-
-    @Mock
-    private StockService stockService;
 
     @InjectMocks
     private PaymentService paymentService;
@@ -77,6 +73,10 @@ class PaymentServiceTest {
         return Order.builder()
             .id(id)
             .userId(userId)
+            .totalAmount(totalAmount)
+            .discountAmount(0L)
+            .finalAmount(totalAmount)
+            .status(com.example.ecommerce.order.domain.status.OrderStatus.PENDING)
             .orderItems(Arrays.asList(orderItem1, orderItem2))
             .build();
     }
@@ -114,52 +114,51 @@ class PaymentServiceTest {
         @DisplayName("결제를 정상적으로 처리한다")
         void processPayment_Success() {
             // given
+            given(paymentRepository.findByIdOrElseThrow(testPaymentId)).willReturn(testPayment);
             given(orderRepository.findByIdOrElseThrow(testOrderId)).willReturn(testOrder);
             given(userRepository.findByIdOrElseThrow(testUserId)).willReturn(testUser);
             given(paymentRepository.save(any(Payment.class))).willReturn(testPayment);
             given(userRepository.save(any(User.class))).willReturn(testUser);
-            given(orderRepository.save(any(Order.class))).willReturn(testOrder);
 
             // when
-            PaymentResponse response = paymentService.processPayment(testUserId, testOrderId);
+            PaymentResult result = paymentService.processPayment(testPaymentId);
 
             // then
-            assertThat(response).isNotNull();
+            assertThat(result.success()).isTrue();
+            assertThat(result.payment()).isNotNull();
+            assertThat(result.order()).isEqualTo(testOrder);
+            assertThat(result.userId()).isEqualTo(testUserId);
+            assertThat(result.failureReason()).isNull();
 
+            then(paymentRepository).should().findByIdOrElseThrow(testPaymentId);
             then(orderRepository).should().findByIdOrElseThrow(testOrderId);
             then(userRepository).should().findByIdOrElseThrow(testUserId);
-            then(paymentRepository).should(times(2)).save(any(Payment.class));
+            then(paymentRepository).should(times(1)).save(any(Payment.class));
             then(userRepository).should().save(any(User.class));
-            then(stockService).should().confirm(testOrderId);
-            then(stockService).should().release(testOrderId);
-            then(orderRepository).should().save(any(Order.class));
         }
 
         @Test
-        @DisplayName("잔액 부족 시 결제가 실패하고 주문이 취소된다")
+        @DisplayName("잔액 부족 시 결제가 실패한다")
         void processPayment_InsufficientBalance() {
             // given
             User poorUser = createTestUser(testUserId, "가난한유저", 1000L);
 
+            given(paymentRepository.findByIdOrElseThrow(testPaymentId)).willReturn(testPayment);
             given(orderRepository.findByIdOrElseThrow(testOrderId)).willReturn(testOrder);
             given(userRepository.findByIdOrElseThrow(testUserId)).willReturn(poorUser);
-
             given(paymentRepository.save(any(Payment.class))).willReturn(testPayment);
-            given(orderRepository.save(any(Order.class))).willReturn(testOrder);
 
-            assertThrowsCustomException(
-                ErrorCode.USER_INSUFFICIENT_BALANCE,
-                () -> paymentService.processPayment(testUserId, testOrderId)
-            );
+            // when
+            PaymentResult result = paymentService.processPayment(testPaymentId);
 
             // then
+            assertThat(result.success()).isFalse();
+            assertThat(result.failureReason()).contains("잔액이 부족합니다");
+
+            then(paymentRepository).should().findByIdOrElseThrow(testPaymentId);
             then(orderRepository).should().findByIdOrElseThrow(testOrderId);
             then(userRepository).should().findByIdOrElseThrow(testUserId);
-
-            then(paymentRepository).should(times(2)).save(any(Payment.class));
-            then(stockService).should(never()).confirm(anyLong());
-            then(stockService).should().release(testOrderId);
-            then(orderRepository).should().save(any(Order.class));
+            then(paymentRepository).should(times(1)).save(any(Payment.class));
         }
 
         @Test
@@ -167,19 +166,27 @@ class PaymentServiceTest {
         void processPayment_UserMismatch() {
             // given
             Long otherUserId = 999L;
+            Payment otherUserPayment = Payment.builder()
+                .id(testPaymentId)
+                .orderId(testOrderId)
+                .userId(otherUserId)
+                .amount(30000L)
+                .status(com.example.ecommerce.payment.domain.status.PaymentStatus.PENDING)
+                .build();
+
+            given(paymentRepository.findByIdOrElseThrow(testPaymentId)).willReturn(otherUserPayment);
             given(orderRepository.findByIdOrElseThrow(testOrderId)).willReturn(testOrder);
 
             // when & then
             assertThrowsCustomException(
                 ErrorCode.INVALID_INPUT_VALUE,
-                () -> paymentService.processPayment(otherUserId, testOrderId)
+                () -> paymentService.processPayment(testPaymentId)
             );
 
+            then(paymentRepository).should().findByIdOrElseThrow(testPaymentId);
             then(orderRepository).should().findByIdOrElseThrow(testOrderId);
             then(userRepository).should(never()).findByIdOrElseThrow(any());
             then(paymentRepository).should(never()).save(any(Payment.class));
-            then(stockService).should(never()).confirm(anyLong());
-            then(stockService).should(never()).release(anyLong());
         }
     }
 }

@@ -9,6 +9,7 @@ import com.example.ecommerce.product.repository.ProductStockRepository;
 import com.example.ecommerce.product.repository.StockReservationRepository;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,12 +34,12 @@ public class StockService {
             throw new CustomException(ErrorCode.PRODUCT_OUT_OF_STOCK);
         }
 
-        StockReservation reservation = StockReservation.builder()
-            .orderId(orderId)
-            .productId(productId)
-            .quantity(quantity)
-            .expiresAt(LocalDateTime.now().plusMinutes(RESERVATION_TIME_THRESHOLD))
-            .build();
+        StockReservation reservation = StockReservation.create(
+            orderId,
+            productId,
+            quantity,
+            LocalDateTime.now().plusMinutes(RESERVATION_TIME_THRESHOLD)
+        );
 
         stock.increaseReservedStock(quantity);
 
@@ -50,9 +51,12 @@ public class StockService {
         List<StockReservation> reservations =
             reservationRepository.findPendingByOrderId(orderId);
 
+        // 데드락 방지: Product ID 순으로 정렬하여 항상 같은 순서로 락 획득
+        reservations.sort(Comparator.comparing(StockReservation::getProductId));
+
         reservations.forEach(reservation -> {
             ProductStock stock = stockRepository
-                .findByIdOrElseThrow(reservation.getProductId());
+                .findByProductIdWithLock(reservation.getProductId());  // 비관적 락 적용
 
             stock.decreaseStock(reservation.getQuantity());
             stock.decreaseReservedStock(reservation.getQuantity());
@@ -68,9 +72,12 @@ public class StockService {
         List<StockReservation> reservations =
             reservationRepository.findPendingByOrderId(orderId);
 
+        // 데드락 방지: Product ID 순으로 정렬하여 항상 같은 순서로 락 획득
+        reservations.sort(Comparator.comparing(StockReservation::getProductId));
+
         reservations.forEach(reservation -> {
             ProductStock stock = stockRepository
-                .findByIdOrElseThrow(reservation.getProductId());
+                .findByProductIdWithLock(reservation.getProductId());  // 비관적 락 적용
 
             reservation.updateStatus(ReservationStatus.RELEASED);
             stock.decreaseReservedStock(reservation.getQuantity());
@@ -85,9 +92,12 @@ public class StockService {
         List<StockReservation> expired =
             reservationRepository.findExpiredReservations(LocalDateTime.now());
 
+        // 데드락 방지: Product ID 순으로 정렬하여 항상 같은 순서로 락 획득
+        expired.sort(Comparator.comparing(StockReservation::getProductId));
+
         expired.forEach(reservation -> {
             ProductStock stock = stockRepository
-                .findByIdOrElseThrow(reservation.getProductId());
+                .findByProductIdWithLock(reservation.getProductId());  // 비관적 락 적용
 
             reservation.updateStatus(ReservationStatus.RELEASED);
             stock.decreaseReservedStock(reservation.getQuantity());
@@ -96,5 +106,4 @@ public class StockService {
             reservationRepository.save(reservation);
         });
     }
-
 }
