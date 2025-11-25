@@ -54,7 +54,10 @@ public enum ErrorCode {
     OPTIMISTIC_LOCK_FAILURE("LOCK_004", HttpStatus.CONFLICT, "락 획득에 실패했습니다. 잠시 후 다시 시도해주세요."),
 
     EVENT_SERIALIZATION_FAILED("EVENT_001", HttpStatus.CONFLICT, "이벤트 직렬화에 실패했습니다."),
-    EVENT_PUBLISH_FAILED("EVENT_002", HttpStatus.INTERNAL_SERVER_ERROR, "이벤트 발행에 실패했습니다.");
+    EVENT_PUBLISH_FAILED("EVENT_002", HttpStatus.INTERNAL_SERVER_ERROR, "이벤트 발행에 실패했습니다."),
+
+    // Outbox
+    OUTBOX_NOT_FOUND("OUTBOX_001", HttpStatus.NOT_FOUND, "Outbox를 찾을 수 없습니다.");
 
     private final String code;
     private final HttpStatus status;
