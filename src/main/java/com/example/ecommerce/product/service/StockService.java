@@ -1,5 +1,6 @@
 package com.example.ecommerce.product.service;
 
+import com.example.ecommerce.common.aop.DistributedLock;
 import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.common.exception.ErrorCode;
 import com.example.ecommerce.product.domain.ProductStock;
@@ -7,13 +8,12 @@ import com.example.ecommerce.product.domain.StockReservation;
 import com.example.ecommerce.product.domain.status.ReservationStatus;
 import com.example.ecommerce.product.repository.ProductStockRepository;
 import com.example.ecommerce.product.repository.StockReservationRepository;
-import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
@@ -25,7 +25,8 @@ public class StockService {
     private final ProductStockRepository stockRepository;
     private final StockReservationRepository reservationRepository;
 
-    @Transactional
+    @DistributedLock(key = "'stock:lock:' + #productId", waitTime = 30, leaseTime = 10)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public StockReservation reserve(Long orderId, Long productId, int quantity) {
         ProductStock stock = stockRepository
             .findByIdOrElseThrow(productId);
@@ -46,45 +47,31 @@ public class StockService {
         return reservationRepository.save(reservation);
     }
 
-    @Transactional
-    public void confirm(Long orderId) {
-        List<StockReservation> reservations =
-            reservationRepository.findPendingByOrderId(orderId);
+    @DistributedLock(key = "'stock:lock:' + #productId", waitTime = 30, leaseTime = 10)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void confirmReservation(Long productId, Long reservationId) {
+        StockReservation reservation = reservationRepository.findByIdOrElseThrow(reservationId);
+        ProductStock stock = stockRepository.findByIdOrElseThrow(productId);
 
-        // 데드락 방지: Product ID 순으로 정렬하여 항상 같은 순서로 락 획득
-        reservations.sort(Comparator.comparing(StockReservation::getProductId));
+        stock.decreaseStock(reservation.getQuantity());
+        stock.decreaseReservedStock(reservation.getQuantity());
+        reservation.updateStatus(ReservationStatus.CONFIRMED);
 
-        reservations.forEach(reservation -> {
-            ProductStock stock = stockRepository
-                .findByProductIdWithLock(reservation.getProductId());  // 비관적 락 적용
-
-            stock.decreaseStock(reservation.getQuantity());
-            stock.decreaseReservedStock(reservation.getQuantity());
-            reservation.updateStatus(ReservationStatus.CONFIRMED);
-
-            stockRepository.save(stock);
-            reservationRepository.save(reservation);
-        });
+        stockRepository.save(stock);
+        reservationRepository.save(reservation);
     }
 
-    @Transactional
-    public void release(Long orderId) {
-        List<StockReservation> reservations =
-            reservationRepository.findPendingByOrderId(orderId);
+    @DistributedLock(key = "'stock:lock:' + #productId", waitTime = 30, leaseTime = 10)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void releaseReservation(Long productId, Long reservationId) {
+        StockReservation reservation = reservationRepository.findByIdOrElseThrow(reservationId);
+        ProductStock stock = stockRepository.findByIdOrElseThrow(productId);
 
-        // 데드락 방지: Product ID 순으로 정렬하여 항상 같은 순서로 락 획득
-        reservations.sort(Comparator.comparing(StockReservation::getProductId));
+        reservation.updateStatus(ReservationStatus.RELEASED);
+        stock.decreaseReservedStock(reservation.getQuantity());
 
-        reservations.forEach(reservation -> {
-            ProductStock stock = stockRepository
-                .findByProductIdWithLock(reservation.getProductId());  // 비관적 락 적용
-
-            reservation.updateStatus(ReservationStatus.RELEASED);
-            stock.decreaseReservedStock(reservation.getQuantity());
-
-            stockRepository.save(stock);
-            reservationRepository.save(reservation);
-        });
+        stockRepository.save(stock);
+        reservationRepository.save(reservation);
     }
 
     @Transactional
@@ -92,18 +79,21 @@ public class StockService {
         List<StockReservation> expired =
             reservationRepository.findExpiredReservations(LocalDateTime.now());
 
-        // 데드락 방지: Product ID 순으로 정렬하여 항상 같은 순서로 락 획득
-        expired.sort(Comparator.comparing(StockReservation::getProductId));
-
         expired.forEach(reservation -> {
-            ProductStock stock = stockRepository
-                .findByProductIdWithLock(reservation.getProductId());  // 비관적 락 적용
-
-            reservation.updateStatus(ReservationStatus.RELEASED);
-            stock.decreaseReservedStock(reservation.getQuantity());
-
-            stockRepository.save(stock);
-            reservationRepository.save(reservation);
+            expireReservation(reservation.getProductId(), reservation.getId());
         });
+    }
+
+    @DistributedLock(key = "'stock:lock:' + #productId", waitTime = 30, leaseTime = 10)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void expireReservation(Long productId, Long reservationId) {
+        StockReservation reservation = reservationRepository.findByIdOrElseThrow(reservationId);
+        ProductStock stock = stockRepository.findByIdOrElseThrow(productId);
+
+        reservation.updateStatus(ReservationStatus.RELEASED);
+        stock.decreaseReservedStock(reservation.getQuantity());
+
+        stockRepository.save(stock);
+        reservationRepository.save(reservation);
     }
 }
