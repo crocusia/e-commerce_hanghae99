@@ -12,9 +12,5 @@ public interface ProductStockRepository {
 
     ProductStock findByIdOrElseThrow(Long id);
 
-    ProductStock findByIdWithLock(Long id);
-
-    ProductStock findByProductIdWithLock(Long productId);
-
     void deleteAllInBatch();
 }
