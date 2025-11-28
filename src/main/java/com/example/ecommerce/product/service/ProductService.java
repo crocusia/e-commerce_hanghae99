@@ -19,6 +19,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -64,8 +65,11 @@ public class ProductService {
         return ProductDetailResponse.from(result, status, stock);
     }
 
+    @Cacheable(value = "product:popular", key = "#limit")
     @Transactional(readOnly = true)
     public List<ProductResponse> getPopularProducts(int limit) {
+        log.debug("인기 상품 조회 (캐시 미스) - limit: {}", limit);
+
         List<ProductPopular> popularProducts = popularRepository.findTopN(limit);
 
         if (popularProducts.isEmpty()) {

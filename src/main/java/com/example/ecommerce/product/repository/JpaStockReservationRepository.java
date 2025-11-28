@@ -1,5 +1,7 @@
 package com.example.ecommerce.product.repository;
 
+import com.example.ecommerce.common.exception.CustomException;
+import com.example.ecommerce.common.exception.ErrorCode;
 import com.example.ecommerce.product.domain.StockReservation;
 import com.example.ecommerce.product.domain.status.ReservationStatus;
 import java.time.LocalDateTime;
@@ -12,6 +14,12 @@ public interface JpaStockReservationRepository extends JpaRepository<StockReserv
 
     @Override
     StockReservation save(StockReservation stockReservation);
+
+    @Override
+    default StockReservation findByIdOrElseThrow(Long id) {
+        return findById(id)
+            .orElseThrow(() -> new CustomException(ErrorCode.STOCK_RESERVATION_NOT_FOUND));
+    }
 
     @Override
     @Query("SELECT sr FROM StockReservation sr WHERE sr.orderId = :orderId AND sr.status = 'RESERVED'")

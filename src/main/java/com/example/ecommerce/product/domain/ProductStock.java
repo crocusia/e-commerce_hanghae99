@@ -30,9 +30,6 @@ public class ProductStock extends BaseEntity {
     @Column(name = "reserved_stock", nullable = false)
     private int reservedStock;
 
-    @jakarta.persistence.Version
-    @Column(name = "version")
-    private Long version;
 
     public static ProductStock create(Long productId, int stock) {
         return ProductStock.builder()

@@ -16,6 +16,7 @@ public enum ErrorCode {
     PRODUCT_OUT_OF_STOCK("PRODUCT_002", HttpStatus.CONFLICT, "상품의 재고가 부족합니다."),
     PRODUCT_ALREADY_EXISTS("PRODUCT_003", HttpStatus.CONFLICT, "이미 존재하는 상품입니다."),
     INVALID_PRODUCT_STATUS("PRODUCT_004", HttpStatus.BAD_REQUEST, "유효하지 않은 상품 상태입니다."),
+    STOCK_RESERVATION_NOT_FOUND("PRODUCT_005", HttpStatus.NOT_FOUND, "재고 예약을 찾을 수 없습니다."),
 
     // User
     USER_NOT_FOUND("USER_001", HttpStatus.NOT_FOUND, "조회된 유저가 없습니다."),

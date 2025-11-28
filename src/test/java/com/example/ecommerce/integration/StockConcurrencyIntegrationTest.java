@@ -1,6 +1,8 @@
 package com.example.ecommerce.integration;
 
+import com.example.ecommerce.config.TestContainersConfig;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import com.example.ecommerce.coupon.repository.CouponRepository;
 import com.example.ecommerce.coupon.repository.UserCouponRepository;
@@ -44,15 +46,20 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * 테스트 플로우:
  * 1. 주문 생성 (OrderCreationOrchestrator) → OrderCreatedEvent 발행
- * 2. 재고 예약 (StockEventListener) → reservedStock 증가
- * 3. 재고 예약 완료 (OrderEventListener) → Order 상태 PENDING으로 변경
- * 4. 결제 생성 (PaymentOrchestrator) → PaymentCreatedEvent 발행
- * 5. 결제 처리 (PaymentEventListener) → 잔액 차감, PaymentCompletedEvent 발행
- * 6. 재고 확정 (StockEventListener) → currentStock 차감, reservedStock 감소
- * 7. 주문 완료 (OrderEventListener) → Order 상태 PAYMENT_COMPLETED로 변경
+ * 2. 재고 예약 (StockEventListener.handleOrderCreated - 동기)
+ *    - StockService.reserve() 각 상품별로 독립 트랜잭션(REQUIRES_NEW)으로 처리
+ *    - 성공: ReservationCompletedEvent 발행 → Order 상태 PENDING
+ *    - 실패: ReservationFailedEvent 발행 → Order 상태 RESERVATION_FAILED
+ * 3. 결제 생성 (PaymentOrchestrator) → PaymentCreatedEvent 발행
+ * 4. 결제 처리 (PaymentEventListener) → 잔액 차감, PaymentCompletedEvent 발행
+ * 5. 재고 확정 (StockEventListener.handlePaymentCompleted - 비동기)
+ *    - StockService.confirmReservation() 각 예약별로 독립 트랜잭션으로 처리
+ *    - currentStock 차감, reservedStock 감소
+ * 6. 주문 완료 (OrderEventListener) → Order 상태 PAYMENT_COMPLETED
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@Import(TestContainersConfig.class)
 @DisplayName("재고 차감 동시성 제어 통합 테스트")
 class StockConcurrencyIntegrationTest {
 
@@ -138,28 +145,26 @@ class StockConcurrencyIntegrationTest {
         // given
         User user = users.get(0);
 
-        // when: 1명이 주문 및 결제
+        // when: 주문 생성
         OrderRequest orderRequest = new OrderRequest(
             user.getId(),
             List.of(new OrderItemRequest(product.getProductId(), 1))
         );
         var orderResponse = orderCreationOrchestrator.createOrder(orderRequest);
 
-        // 이벤트 처리 대기
-        Thread.sleep(500);
+        // 재고 예약 이벤트 처리 대기 (동기 처리이므로 짧게)
+        Thread.sleep(300);
 
-        // 주문 상태 확인
         Order order = orderRepository.findById(orderResponse.id()).orElseThrow();
 
         if (order.getStatus().toString().equals("PENDING")) {
-            // 결제 진행
             PaymentRequest paymentRequest = new PaymentRequest(
                 order.getId(),
                 user.getId()
             );
             paymentOrchestrator.createPayment(paymentRequest);
 
-            // 결제 이벤트 처리 대기
+            // 결제 완료 및 재고 확정 이벤트 처리 대기 (비동기)
             Thread.sleep(1000);
         }
 
@@ -187,43 +192,39 @@ class StockConcurrencyIntegrationTest {
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failCount = new AtomicInteger(0);
 
-        // when: 20명이 동시에 주문 및 결제 시도
         for (int i = 0; i < CONCURRENT_REQUESTS; i++) {
             final int userIndex = i;
             executorService.submit(() -> {
                 try {
                     readyLatch.countDown();
-                    startLatch.await(); // 모든 스레드가 준비될 때까지 대기
+                    startLatch.await();
 
                     User user = users.get(userIndex);
 
-                    // 1. 주문 생성
                     OrderRequest orderRequest = new OrderRequest(
                         user.getId(),
                         List.of(new OrderItemRequest(product.getProductId(), 1))
                     );
                     var orderResponse = orderCreationOrchestrator.createOrder(orderRequest);
 
-                    // 이벤트 처리를 위한 대기
-                    Thread.sleep(200);
+                    // 재고 예약 이벤트 처리 대기 (동기 처리)
+                    Thread.sleep(300);
 
-                    // 2. 주문 상태 확인 (재고 예약 완료 여부)
                     Order order = orderRepository.findById(orderResponse.id()).orElseThrow();
 
                     if (order.getStatus().toString().equals("PENDING")) {
-                        // 재고 예약 성공 → 결제 진행
                         PaymentRequest paymentRequest = new PaymentRequest(
                             order.getId(),
                             user.getId()
                         );
                         paymentOrchestrator.createPayment(paymentRequest);
 
-                        // 결제 이벤트 처리를 위한 대기
-                        Thread.sleep(400);
+                        // 결제 완료 및 재고 확정 이벤트 처리 대기 (비동기)
+                        Thread.sleep(500);
 
                         successCount.incrementAndGet();
                     } else {
-                        // 재고 예약 실패
+                        // 재고 부족으로 RESERVATION_FAILED 상태
                         failCount.incrementAndGet();
                     }
 
@@ -235,16 +236,14 @@ class StockConcurrencyIntegrationTest {
             });
         }
 
-        readyLatch.await(); // 모든 스레드가 준비될 때까지 대기
-        startLatch.countDown(); // 모든 스레드 동시 시작
-        doneLatch.await(60, TimeUnit.SECONDS); // 모든 작업 완료 대기
+        readyLatch.await();
+        startLatch.countDown();
+        doneLatch.await(60, TimeUnit.SECONDS);
         executorService.shutdown();
 
-        // 추가 이벤트 처리를 위한 대기
         Thread.sleep(3000);
 
-        // then: 검증
-        // 1. 성공 10개, 실패 10개
+        // then
         System.out.println("Success count: " + successCount.get() + ", Fail count: " + failCount.get());
         assertThat(successCount.get())
             .as("성공한 주문 수는 초기 재고(%d)와 같아야 합니다", INITIAL_STOCK)
@@ -253,12 +252,10 @@ class StockConcurrencyIntegrationTest {
             .as("실패한 주문 수는 %d개여야 합니다", CONCURRENT_REQUESTS - INITIAL_STOCK)
             .isEqualTo(CONCURRENT_REQUESTS - INITIAL_STOCK);
 
-        // 2. 최종 재고 확인
         ProductStock finalStock = productStockRepository.findByProductId(product.getProductId()).orElseThrow();
         assertThat(finalStock.getCurrentStock().getQuantity()).isEqualTo(0);
         assertThat(finalStock.getReservedStock()).isEqualTo(0);
 
-        // 3. 완료된 주문 개수 확인
         long completedOrders = orderRepository.findByStatus(
             com.example.ecommerce.order.domain.status.OrderStatus.PAYMENT_COMPLETED
         ).size();
@@ -280,7 +277,7 @@ class StockConcurrencyIntegrationTest {
         ExecutorService executorService = Executors.newFixedThreadPool(2);
         CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch doneLatch = new CountDownLatch(2);
-        AtomicInteger successCount = new AtomicInteger(0);
+        List<Long> orderIds = new ArrayList<>();
 
         for (int i = 0; i < 2; i++) {
             final int userIndex = i;
@@ -293,10 +290,14 @@ class StockConcurrencyIntegrationTest {
                         user.getId(),
                         List.of(new OrderItemRequest(product.getProductId(), 1))
                     );
-                    orderCreationOrchestrator.createOrder(orderRequest);
+                    var orderResponse = orderCreationOrchestrator.createOrder(orderRequest);
 
-                    Thread.sleep(100);
-                    successCount.incrementAndGet();
+                    synchronized (orderIds) {
+                        orderIds.add(orderResponse.id());
+                    }
+
+                    // 재고 예약 이벤트 처리 대기
+                    Thread.sleep(300);
 
                 } catch (Exception e) {
                     // 예외 발생 가능
@@ -310,12 +311,27 @@ class StockConcurrencyIntegrationTest {
         doneLatch.await(10, TimeUnit.SECONDS);
         executorService.shutdown();
 
+        // 모든 이벤트 처리 대기
         Thread.sleep(500);
 
-        // then: 1명만 성공, 최종 재고 0
+        // then: 재고 1개이므로 1명만 성공(PENDING), 1명 실패(RESERVATION_FAILED)
         ProductStock finalStock = productStockRepository.findByProductId(product.getProductId()).orElseThrow();
         int availableStock = finalStock.getCurrentStock().getQuantity() - finalStock.getReservedStock();
         assertThat(availableStock).isEqualTo(0);
+
+        // 주문 상태 검증
+        long pendingOrders = orderIds.stream()
+            .map(orderId -> orderRepository.findById(orderId).orElseThrow())
+            .filter(order -> order.getStatus().toString().equals("PENDING"))
+            .count();
+
+        long failedOrders = orderIds.stream()
+            .map(orderId -> orderRepository.findById(orderId).orElseThrow())
+            .filter(order -> order.getStatus().toString().equals("RESERVATION_FAILED"))
+            .count();
+
+        assertThat(pendingOrders).isEqualTo(1);
+        assertThat(failedOrders).isEqualTo(1);
     }
 
     @Test
@@ -336,8 +352,8 @@ class StockConcurrencyIntegrationTest {
         );
         var orderResponse = orderCreationOrchestrator.createOrder(orderRequest);
 
-        // 재고 예약 이벤트 처리 대기
-        Thread.sleep(200);
+        // 재고 예약 이벤트 처리 대기 (동기)
+        Thread.sleep(300);
 
         // 재고 예약 후 상태 확인
         ProductStock stockAfterReservation = productStockRepository.findByProductId(product.getProductId()).orElseThrow();
@@ -355,14 +371,14 @@ class StockConcurrencyIntegrationTest {
                 );
                 paymentOrchestrator.createPayment(paymentRequest);
 
-                // 결제 실패 이벤트 처리 대기
-                Thread.sleep(300);
+                // 결제 실패 및 재고 해제 이벤트 처리 대기 (비동기)
+                Thread.sleep(800);
             } catch (Exception e) {
                 // 결제 실패 예상
             }
+        } else {
+            Thread.sleep(500);
         }
-
-        Thread.sleep(500);
 
         // then: 예약된 재고가 해제되어야 함
         ProductStock finalStock = productStockRepository.findByProductId(product.getProductId()).orElseThrow();
@@ -400,7 +416,8 @@ class StockConcurrencyIntegrationTest {
                     );
                     var orderResponse = orderCreationOrchestrator.createOrder(orderRequest);
 
-                    Thread.sleep(200);
+                    // 재고 예약 이벤트 처리 대기 (동기)
+                    Thread.sleep(300);
 
                     Order order = orderRepository.findById(orderResponse.id()).orElseThrow();
                     if (order.getStatus().toString().equals("PENDING")) {
@@ -409,7 +426,9 @@ class StockConcurrencyIntegrationTest {
                             user.getId()
                         );
                         paymentOrchestrator.createPayment(paymentRequest);
-                        Thread.sleep(400);
+
+                        // 결제 완료 및 재고 확정 이벤트 처리 대기 (비동기)
+                        Thread.sleep(500);
                         successCount.incrementAndGet();
                     }
 

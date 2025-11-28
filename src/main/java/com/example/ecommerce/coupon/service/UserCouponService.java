@@ -1,6 +1,6 @@
 package com.example.ecommerce.coupon.service;
 
-import com.example.ecommerce.common.aop.PessimisticLock;
+import com.example.ecommerce.common.aop.DistributedLock;
 import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.common.exception.ErrorCode;
 import com.example.ecommerce.coupon.domain.Coupon;
@@ -8,8 +8,6 @@ import com.example.ecommerce.coupon.domain.UserCoupon;
 import com.example.ecommerce.coupon.dto.UserCouponResponse;
 import com.example.ecommerce.coupon.repository.CouponRepository;
 import com.example.ecommerce.coupon.repository.UserCouponRepository;
-import com.example.ecommerce.user.domain.User;
-import com.example.ecommerce.user.repository.UserRepository;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,9 +24,8 @@ public class UserCouponService {
 
     private final CouponRepository couponRepository;
     private final UserCouponRepository userCouponRepository;
-    private final UserRepository userRepository;
 
-    @PessimisticLock(key = "#couponId")
+    @DistributedLock(key = "'coupon:lock:' + #couponId", waitTime = 5, leaseTime = 3)
     @Transactional
     public UserCouponResponse issueCoupon(long couponId, Long userId) {
         log.info("쿠폰 발급 시작 - couponId: {}, userId: {}", couponId, userId);
@@ -42,8 +39,6 @@ public class UserCouponService {
 
         coupon.issue();
         couponRepository.save(coupon);
-
-        User user = userRepository.findByIdOrElseThrow(userId);
 
         UserCoupon userCoupon = UserCoupon.builder()
             .userId(userId)
