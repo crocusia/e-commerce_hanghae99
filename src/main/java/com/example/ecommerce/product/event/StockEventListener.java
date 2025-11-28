@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -26,7 +27,7 @@ public class StockEventListener {
     private final MessagePublisher eventPublisher;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleOrderCreated(OrderCreatedEvent event) {
         log.info("재고 예약 시작 - orderId: {}, items: {}", event.aggregateId(), event.orderItems().size());
 
@@ -57,7 +58,7 @@ public class StockEventListener {
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
     public void handlePaymentCompleted(PaymentCompletedEvent event) {
         log.info("결제 완료 이벤트 수신 - 재고 확정 시작, orderId: {}", event.orderId());
 
@@ -81,7 +82,7 @@ public class StockEventListener {
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
     public void handlePaymentFailed(PaymentFailedEvent event) {
         log.warn("결제 실패 이벤트 수신 - 재고 해제 시작, orderId: {}", event.orderId());
 
