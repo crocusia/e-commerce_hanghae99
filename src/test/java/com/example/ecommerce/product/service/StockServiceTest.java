@@ -42,9 +42,14 @@ class StockServiceTest {
     private StockService stockService;
 
     private ProductStock createProductStock(Long productId, int stock, int reserved) {
+        LocalDateTime now = LocalDateTime.now();
         ProductStock productStock = ProductStock.builder()
             .id(productId)
+            .productId(productId)
             .currentStock(Stock.of(stock))
+            .reservedStock(0)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
         if (reserved > 0) {
             productStock.increaseReservedStock(reserved);
@@ -53,13 +58,16 @@ class StockServiceTest {
     }
 
     private StockReservation createReservation(Long id, Long orderId, Long productId, int quantity, ReservationStatus status) {
+        LocalDateTime now = LocalDateTime.now();
         return StockReservation.builder()
             .id(id)
             .orderId(orderId)
             .productId(productId)
             .quantity(quantity)
             .status(status)
-            .expiresAt(LocalDateTime.now().plusMinutes(10))
+            .expiresAt(now.plusMinutes(10))
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 

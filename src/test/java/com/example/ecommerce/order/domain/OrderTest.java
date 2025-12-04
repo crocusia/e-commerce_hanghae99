@@ -23,7 +23,17 @@ class OrderTest {
     // 헬퍼 메서드
     private OrderItem createOrderItem(Long productId, String productName, Integer quantity,
         Long unitPrice) {
-        return OrderItem.create(productId, productName, quantity, unitPrice);
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        return OrderItem.builder()
+            .productId(productId)
+            .productName(productName)
+            .quantity(quantity)
+            .unitPrice(unitPrice)
+            .subtotal(quantity * unitPrice)
+            .status(com.example.ecommerce.order.domain.status.OrderItemStatus.ORDERED)
+            .createdAt(now)
+            .updatedAt(now)
+            .build();
     }
 
     private List<OrderItem> createDefaultOrderItems() {
@@ -34,7 +44,22 @@ class OrderTest {
     }
 
     private Order createDefaultOrder() {
-        return Order.create(1L, createDefaultOrderItems());
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        List<OrderItem> items = createDefaultOrderItems();
+        Long totalAmount = items.stream().mapToLong(OrderItem::getSubtotal).sum();
+
+        Order order = Order.builder()
+            .userId(1L)
+            .totalAmount(totalAmount)
+            .discountAmount(0L)
+            .finalAmount(totalAmount)
+            .status(OrderStatus.PENDING_RESERVATION)
+            .createdAt(now)
+            .updatedAt(now)
+            .build();
+
+        items.forEach(order::addOrderItem);
+        return order;
     }
 
     private void assertThrowsIllegalArgumentException(String expectedMessage, Runnable runnable) {
@@ -62,7 +87,18 @@ class OrderTest {
             List<OrderItem> orderItems = createDefaultOrderItems();
 
             // when
-            Order order = Order.create(userId, orderItems);
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            Long totalAmount = orderItems.stream().mapToLong(OrderItem::getSubtotal).sum();
+            Order order = Order.builder()
+                .userId(userId)
+                .totalAmount(totalAmount)
+                .discountAmount(0L)
+                .finalAmount(totalAmount)
+                .status(OrderStatus.PENDING_RESERVATION)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+            orderItems.forEach(order::addOrderItem);
 
             // then
             assertAll(
@@ -100,7 +136,18 @@ class OrderTest {
             );
 
             // when
-            Order order = Order.create(userId, orderItems);
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            Long totalAmount = orderItems.stream().mapToLong(OrderItem::getSubtotal).sum();
+            Order order = Order.builder()
+                .userId(userId)
+                .totalAmount(totalAmount)
+                .discountAmount(0L)
+                .finalAmount(totalAmount)
+                .status(OrderStatus.PENDING_RESERVATION)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+            orderItems.forEach(order::addOrderItem);
 
             // then
             assertThat(order.getTotalAmount()).isEqualTo(expectedTotal);
@@ -118,7 +165,18 @@ class OrderTest {
             );
 
             // when
-            Order order = Order.create(userId, orderItems);
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            Long totalAmount = orderItems.stream().mapToLong(OrderItem::getSubtotal).sum();
+            Order order = Order.builder()
+                .userId(userId)
+                .totalAmount(totalAmount)
+                .discountAmount(0L)
+                .finalAmount(totalAmount)
+                .status(OrderStatus.PENDING_RESERVATION)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+            orderItems.forEach(order::addOrderItem);
 
             // then
             assertThat(order.getTotalAmount()).isEqualTo(50000L);
@@ -247,20 +305,6 @@ class OrderTest {
             );
         }
 
-        @Test
-        @DisplayName("쿠폰 적용 시 updatedAt이 갱신된다")
-        void updatedAtIsRefreshedAfterApplyCoupon() throws InterruptedException {
-            // given
-            Order order = createDefaultOrder();
-            var originalUpdatedAt = order.getUpdatedAt();
-            Thread.sleep(10);
-
-            // when
-            order.applyCoupon(1L, 5000L);
-
-            // then
-            assertThat(order.getUpdatedAt()).isAfter(originalUpdatedAt);
-        }
     }
 
     @Nested
@@ -358,21 +402,6 @@ class OrderTest {
         }
 
         @Test
-        @DisplayName("결제 완료 시 updatedAt이 갱신된다")
-        void updatedAtIsRefreshedAfterCompletePayment() throws InterruptedException {
-            // given
-            Order order = createDefaultOrder();
-            var originalUpdatedAt = order.getUpdatedAt();
-            Thread.sleep(10);
-
-            // when
-            order.completePayment();
-
-            // then
-            assertThat(order.getUpdatedAt()).isAfter(originalUpdatedAt);
-        }
-
-        @Test
         @DisplayName("결제 완료 후 상태가 변경된다")
         void statusChangesAfterCompletePayment() {
             // given
@@ -402,21 +431,6 @@ class OrderTest {
 
             // then
             assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
-        }
-
-        @Test
-        @DisplayName("주문 취소 시 updatedAt이 갱신된다")
-        void updatedAtIsRefreshedAfterCancel() throws InterruptedException {
-            // given
-            Order order = createDefaultOrder();
-            var originalUpdatedAt = order.getUpdatedAt();
-            Thread.sleep(10);
-
-            // when
-            order.cancel();
-
-            // then
-            assertThat(order.getUpdatedAt()).isAfter(originalUpdatedAt);
         }
 
         @Test

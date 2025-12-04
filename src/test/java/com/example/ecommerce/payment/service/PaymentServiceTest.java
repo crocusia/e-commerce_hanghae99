@@ -67,8 +67,27 @@ class PaymentServiceTest {
 
     // 헬퍼 메서드
     private Order createTestOrder(Long id, Long userId, Long totalAmount) {
-        OrderItem orderItem1 = OrderItem.create(1L, "상품1", 1, 10000L);
-        OrderItem orderItem2 = OrderItem.create(2L, "상품2", 1, 20000L);
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        OrderItem orderItem1 = OrderItem.builder()
+            .productId(1L)
+            .productName("상품1")
+            .quantity(1)
+            .unitPrice(10000L)
+            .subtotal(10000L)
+            .status(com.example.ecommerce.order.domain.status.OrderItemStatus.ORDERED)
+            .createdAt(now)
+            .updatedAt(now)
+            .build();
+        OrderItem orderItem2 = OrderItem.builder()
+            .productId(2L)
+            .productName("상품2")
+            .quantity(1)
+            .unitPrice(20000L)
+            .subtotal(20000L)
+            .status(com.example.ecommerce.order.domain.status.OrderItemStatus.ORDERED)
+            .createdAt(now)
+            .updatedAt(now)
+            .build();
 
         return Order.builder()
             .id(id)
@@ -78,24 +97,34 @@ class PaymentServiceTest {
             .finalAmount(totalAmount)
             .status(com.example.ecommerce.order.domain.status.OrderStatus.PENDING)
             .orderItems(Arrays.asList(orderItem1, orderItem2))
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
     private User createTestUser(Long id, String name, Long balance) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
         return User.builder()
             .id(id)
             .name(name)
             .email(name + "@test.com")
             .balance(balance)
+            .status(com.example.ecommerce.user.domain.status.UserStatus.ACTIVE)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
     private Payment createTestPayment(Long id, Long orderId, Long userId, Long amount) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
         return Payment.builder()
             .id(id)
             .orderId(orderId)
             .userId(userId)
             .amount(amount)
+            .status(com.example.ecommerce.payment.domain.status.PaymentStatus.PENDING)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 

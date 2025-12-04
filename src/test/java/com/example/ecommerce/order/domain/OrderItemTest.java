@@ -14,7 +14,17 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class OrderItemTest {
 
     private OrderItem createDefaultOrderItem() {
-        return OrderItem.create(1L, "테스트 상품", 2, 10000L);
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        return com.example.ecommerce.order.domain.OrderItem.builder()
+            .productId(1L)
+            .productName("테스트 상품")
+            .quantity(2)
+            .unitPrice(10000L)
+            .subtotal(20000L)
+            .status(com.example.ecommerce.order.domain.status.OrderItemStatus.ORDERED)
+            .createdAt(now)
+            .updatedAt(now)
+            .build();
     }
 
     private void assertOrderItemFields(OrderItem orderItem, Long expectedProductId,
@@ -46,7 +56,17 @@ class OrderItemTest {
             Long unitPrice = 1500000L;
 
             // when
-            OrderItem orderItem = OrderItem.create(productId, productName, quantity, unitPrice);
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            OrderItem orderItem = OrderItem.builder()
+                .productId(productId)
+                .productName(productName)
+                .quantity(quantity)
+                .unitPrice(unitPrice)
+                .subtotal(quantity * unitPrice)
+                .status(com.example.ecommerce.order.domain.status.OrderItemStatus.ORDERED)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
 
             // then
             assertOrderItemFields(orderItem, productId, productName, quantity, unitPrice,
@@ -84,7 +104,17 @@ class OrderItemTest {
             String productName = "상품";
 
             // when
-            OrderItem orderItem = OrderItem.create(productId, productName, quantity, unitPrice);
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            OrderItem orderItem = OrderItem.builder()
+                .productId(productId)
+                .productName(productName)
+                .quantity(quantity)
+                .unitPrice(unitPrice)
+                .subtotal(quantity * unitPrice)
+                .status(com.example.ecommerce.order.domain.status.OrderItemStatus.ORDERED)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
 
             // then
             assertThat(orderItem.getSubtotal()).isEqualTo(expectedSubtotal);

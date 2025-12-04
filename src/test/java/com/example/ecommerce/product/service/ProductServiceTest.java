@@ -56,27 +56,37 @@ class ProductServiceTest {
 
     // 헬퍼 메서드
     private Product createProduct(Long id, String name, long price, ProductStatus status) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
         return Product.builder()
             .id(id)
             .name(name)
             .price(Money.of(price))
             .comment("상품 설명")
             .productStatus(status)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
     private ProductStock createProductStock(Long productId, int stock) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
         return ProductStock.builder()
             .id(productId)
+            .productId(productId)
             .currentStock(Stock.of(stock))
+            .reservedStock(0)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
     private ProductPopular createProductPopular(Long productId, long salesCount, int rank) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
         return ProductPopular.builder()
             .productId(productId)
             .salesCount(salesCount)
             .rank(rank)
+            .lastAggregatedAt(now)
             .build();
     }
 

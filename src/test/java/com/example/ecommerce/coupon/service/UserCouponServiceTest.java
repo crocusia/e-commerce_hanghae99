@@ -62,31 +62,43 @@ class UserCouponServiceTest {
     }
 
     private Coupon createTestCoupon(Long id, String name, Long discountPrice, int totalQuantity) {
+        LocalDateTime now = LocalDateTime.now();
         return Coupon.builder()
             .id(id)
             .name(name)
             .discountValue(DiscountValue.fixed(discountPrice))
             .quantity(CouponQuantity.of(totalQuantity))
-            .validPeriod(ValidPeriod.of(LocalDateTime.now(), LocalDateTime.now().plusDays(30)))
+            .validPeriod(ValidPeriod.of(now, now.plusDays(30)))
             .minOrderAmount(Money.of(10000L))
+            .status(com.example.ecommerce.coupon.domain.status.CouponStatus.ACTIVE)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
     private UserCoupon createTestUserCoupon(Long id, Long userId, Coupon coupon, LocalDateTime expiresAt) {
+        LocalDateTime now = LocalDateTime.now();
         return UserCoupon.builder()
             .id(id)
             .userId(userId)
             .coupon(coupon)
             .expiresAt(expiresAt)
+            .status(com.example.ecommerce.coupon.domain.status.UserCouponStatus.UNUSED)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
     private UserCoupon createExpiredUserCoupon(Long id, Long userId, Coupon coupon) {
+        LocalDateTime now = LocalDateTime.now();
         return UserCoupon.builder()
             .id(id)
             .userId(userId)
             .coupon(coupon)
-            .expiresAt(LocalDateTime.now().minusDays(1))
+            .expiresAt(now.minusDays(1))
+            .status(com.example.ecommerce.coupon.domain.status.UserCouponStatus.UNUSED)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 

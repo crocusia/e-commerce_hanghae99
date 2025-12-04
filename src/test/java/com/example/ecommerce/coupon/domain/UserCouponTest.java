@@ -20,22 +20,29 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class UserCouponTest {
 
     private Coupon createCoupon() {
+        LocalDateTime now = LocalDateTime.now();
         return Coupon.builder()
             .name("테스트 쿠폰")
             .discountValue(DiscountValue.fixed(5000L))
             .quantity(CouponQuantity.of(100))
-            .validPeriod(ValidPeriod.of(LocalDateTime.now(), LocalDateTime.now().plusDays(30)))
+            .validPeriod(ValidPeriod.of(now, now.plusDays(30)))
             .minOrderAmount(Money.of(10000L))
+            .status(com.example.ecommerce.coupon.domain.status.CouponStatus.ACTIVE)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
     private UserCoupon createUserCoupon(Long userId, Coupon coupon) {
+        LocalDateTime now = LocalDateTime.now();
         return UserCoupon.builder()
             .id(1L)
             .userId(userId)
             .coupon(coupon)
             .status(UserCouponStatus.UNUSED)
-            .expiresAt(LocalDateTime.now().plusDays(30))
+            .expiresAt(now.plusDays(30))
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
@@ -45,13 +52,16 @@ class UserCouponTest {
     }
 
     private UserCoupon createExpiredUserCoupon() {
+        LocalDateTime now = LocalDateTime.now();
         Coupon coupon = createCoupon();
         return UserCoupon.builder()
             .id(1L)
             .userId(1L)
             .coupon(coupon)
             .status(UserCouponStatus.UNUSED)
-            .expiresAt(LocalDateTime.now().minusDays(1))
+            .expiresAt(now.minusDays(1))
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
@@ -75,12 +85,15 @@ class UserCouponTest {
             LocalDateTime expiresAt = LocalDateTime.now().plusDays(30);
 
             // when
+            LocalDateTime now = LocalDateTime.now();
             UserCoupon userCoupon = UserCoupon.builder()
                 .id(1L)
                 .userId(userId)
                 .coupon(coupon)
                 .status(UserCouponStatus.UNUSED)
                 .expiresAt(expiresAt)
+                .createdAt(now)
+                .updatedAt(now)
                 .build();
 
             // then

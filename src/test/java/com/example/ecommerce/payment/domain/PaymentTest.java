@@ -17,11 +17,15 @@ class PaymentTest {
 
     // 헬퍼 메서드
     private Payment createTestPayment(Long id, Long orderId, Long userId, Long amount) {
+        LocalDateTime now = LocalDateTime.now();
         return Payment.builder()
             .id(id)
             .orderId(orderId)
             .userId(userId)
             .amount(amount)
+            .status(PaymentStatus.PENDING)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 

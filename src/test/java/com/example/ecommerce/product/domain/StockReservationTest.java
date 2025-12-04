@@ -17,11 +17,15 @@ class StockReservationTest {
 
     // 헬퍼 메서드
     private StockReservation create(Long orderId, Long productId, int quantity) {
+        LocalDateTime now = LocalDateTime.now();
         return StockReservation.builder()
             .orderId(orderId)
             .productId(productId)
             .quantity(quantity)
-            .expiresAt(LocalDateTime.now().plusMinutes(10))
+            .status(ReservationStatus.RESERVED)
+            .expiresAt(now.plusMinutes(10))
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
@@ -59,11 +63,15 @@ class StockReservationTest {
             LocalDateTime expectedExpiration = LocalDateTime.now().plusMinutes(15);
 
             // when
+            LocalDateTime now = LocalDateTime.now();
             StockReservation reservation = StockReservation.builder()
                 .orderId(1L)
                 .productId(100L)
                 .quantity(5)
+                .status(ReservationStatus.RESERVED)
                 .expiresAt(expectedExpiration)
+                .createdAt(now)
+                .updatedAt(now)
                 .build();
 
             // then

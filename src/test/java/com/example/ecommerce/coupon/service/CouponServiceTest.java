@@ -46,26 +46,34 @@ class CouponServiceTest {
     }
 
     private Coupon createTestCoupon(Long id, String name, Long discountPrice, int quantity) {
+        LocalDateTime now = LocalDateTime.now();
         return Coupon.builder()
             .id(id)
             .name(name)
             .discountValue(com.example.ecommerce.coupon.domain.vo.DiscountValue.fixed(discountPrice))
             .quantity(com.example.ecommerce.coupon.domain.vo.CouponQuantity.of(quantity))
             .validPeriod(com.example.ecommerce.coupon.domain.vo.ValidPeriod.of(
-                LocalDateTime.now(), LocalDateTime.now().plusDays(30)))
+                now, now.plusDays(30)))
             .minOrderAmount(com.example.ecommerce.product.domain.vo.Money.of(10000L))
+            .status(CouponStatus.ACTIVE)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
     private Coupon createPercentageCoupon(Long id, String name, Double discountRate, int quantity) {
+        LocalDateTime now = LocalDateTime.now();
         return Coupon.builder()
             .id(id)
             .name(name)
             .discountValue(DiscountValue.percentage(discountRate))
             .quantity(CouponQuantity.of(quantity))
             .validPeriod(ValidPeriod.of(
-                LocalDateTime.now(), LocalDateTime.now().plusDays(30)))
+                now, now.plusDays(30)))
             .minOrderAmount(Money.of(10000L))
+            .status(CouponStatus.ACTIVE)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 

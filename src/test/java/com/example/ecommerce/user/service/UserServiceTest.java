@@ -53,11 +53,15 @@ class UserServiceTest {
 
     // 헬퍼 메서드
     private User createUser(Long id, String name, String email, Long balance) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
         return User.builder()
             .id(id)
             .name(name)
             .email(email)
             .balance(balance)
+            .status(UserStatus.ACTIVE)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
