@@ -27,12 +27,4 @@ public interface JpaProductStockRepository extends JpaRepository<ProductStock, L
             .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
     }
 
-    @Override
-    @Query("SELECT ps FROM ProductStock ps WHERE ps.id = :id")
-    ProductStock findByIdWithLock(@Param("id") Long id);
-
-    @Override
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT ps FROM ProductStock ps WHERE ps.productId = :productId")
-    ProductStock findByProductIdWithLock(@Param("productId") Long productId);
 }

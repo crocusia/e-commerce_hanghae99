@@ -8,6 +8,7 @@ import com.example.ecommerce.product.domain.ProductPopular;
 import com.example.ecommerce.product.repository.ProductPopularRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.CacheManager;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,23 +27,38 @@ public class SalesAggregationService {
 
     private final OrderRepository orderRepository;
     private final ProductPopularRepository productPopularRepository;
+    private final ProductSalesRedisService salesRedisService;
+    private final CacheManager cacheManager;
 
     @Scheduled(cron = "0 0 3 * * *") // 매일 새벽 3시 실행
     @Transactional
     public void aggregateSales() {
-        log.info("Starting sales aggregation...");
+        log.info("판매 수 집계 시작 (Redis 기반)...");
 
         try {
-            Map<Long, Long> salesMap = calculateSalesCount();
+            Map<Long, Long> salesMap = salesRedisService.getAllSales();
+
+            if (salesMap.isEmpty()) {
+                log.warn("Redis 판매 데이터 없음, DB에서 재집계 시작");
+                salesMap = calculateSalesCountFromDB();
+                salesRedisService.syncFromDB(salesMap);
+            }
+
             updateProductPopular(salesMap);
-            log.info("Sales aggregation completed. Total products: {}", salesMap.size());
+
+            evictPopularProductsCache();
+
+            log.info("판매 수 집계 완료 - 총 상품 수: {}", salesMap.size());
+
         } catch (Exception e) {
-            log.error("Failed to aggregate sales", e);
+            log.error("판매 수 집계 실패", e);
         }
     }
 
     @Transactional(readOnly = true)
-    public Map<Long, Long> calculateSalesCount() {
+    public Map<Long, Long> calculateSalesCountFromDB() {
+        log.info("DB에서 판매 수 재집계 시작...");
+
         // 결제 완료된 주문만 조회
         List<Order> completedOrders = orderRepository.findByStatus(OrderStatus.PAYMENT_COMPLETED);
 
@@ -57,6 +73,9 @@ public class SalesAggregationService {
             }
         }
 
+        log.info("DB 재집계 완료 - 주문 수: {}, 상품 수: {}",
+            completedOrders.size(), salesMap.size());
+
         return salesMap;
     }
 
@@ -67,15 +86,12 @@ public class SalesAggregationService {
             return;
         }
 
-        // 판매량 기준으로 정렬하고 랭킹 부여
         List<Map.Entry<Long, Long>> sortedSales = salesMap.entrySet().stream()
             .sorted(Map.Entry.<Long, Long>comparingByValue().reversed())
             .collect(Collectors.toList());
 
-        // 기존 데이터 모두 삭제
         productPopularRepository.deleteAllInBatch();
 
-        // 새로운 데이터 저장
         AtomicInteger rank = new AtomicInteger(1);
         for (Map.Entry<Long, Long> entry : sortedSales) {
             ProductPopular popular = ProductPopular.create(
@@ -87,5 +103,16 @@ public class SalesAggregationService {
         }
 
         log.info("Updated {} product popular records", sortedSales.size());
+    }
+
+    private void evictPopularProductsCache() {
+        try {
+            if (cacheManager.getCache("product:popular") != null) {
+                cacheManager.getCache("product:popular").clear();
+                log.info("인기 상품 캐시 무효화 완료");
+            }
+        } catch (Exception e) {
+            log.error("캐시 무효화 실패", e);
+        }
     }
 }
