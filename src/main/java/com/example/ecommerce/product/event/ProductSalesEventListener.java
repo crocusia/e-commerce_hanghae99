@@ -32,7 +32,14 @@ public class ProductSalesEventListener {
             Order order = orderRepository.findByIdOrElseThrow(event.orderId());
 
             for (OrderItem item : order.getOrderItems()) {
+                // 기존: 전체 누적 판매량 (배치 집계용)
                 salesRedisService.incrementSales(
+                    item.getProductId(),
+                    item.getQuantity()
+                );
+
+                // STEP 13: 날짜별 판매량 (3일 랭킹용)
+                salesRedisService.incrementTodaySales(
                     item.getProductId(),
                     item.getQuantity()
                 );
