@@ -106,4 +106,30 @@ public class UserCouponService {
 
         return UserCouponResponse.from(userCoupon, coupon);
     }
+
+    @Transactional
+    public UserCoupon issueCouponAsync(Long couponId, Long userId) {
+        log.info("쿠폰 비동기 발급 - couponId: {}, userId: {}", couponId, userId);
+
+        // 중복 체크 (DB 레벨)
+        Optional<UserCoupon> checkCoupon = userCouponRepository.findByUserIdAndCouponId(userId, couponId);
+        if (checkCoupon.isPresent()) {
+            log.warn("이미 발급된 쿠폰 - couponId: {}, userId: {}", couponId, userId);
+            throw new CustomException(ErrorCode.COUPON_ALREADY_ISSUED);
+        }
+
+        Coupon coupon = couponRepository.findByIdOrElseThrow(couponId);
+
+        // 수량 증가
+        coupon.issue();
+        couponRepository.save(coupon);
+
+        // UserCoupon 생성
+        UserCoupon userCoupon = UserCoupon.create(userId, coupon);
+        UserCoupon savedUserCoupon = userCouponRepository.save(userCoupon);
+
+        log.info("쿠폰 비동기 발급 완료 - userCouponId: {}", savedUserCoupon.getId());
+
+        return savedUserCoupon;
+    }
 }

@@ -30,12 +30,18 @@ public class SalesAggregationService {
     private final ProductSalesRedisService salesRedisService;
     private final CacheManager cacheManager;
 
+    /**
+     * 매일 새벽 3시 일괄 집계
+     * 1. Redis 전체 누적 판매량 → DB ProductPopular 테이블 동기화
+     * 2. 3일 랭킹 스냅샷 생성 (하루 1회 갱신)
+     */
     @Scheduled(cron = "0 0 3 * * *") // 매일 새벽 3시 실행
     @Transactional
     public void aggregateSales() {
         log.info("판매 수 집계 시작 (Redis 기반)...");
 
         try {
+            // 1. 전체 누적 판매량 집계 → DB 동기화
             Map<Long, Long> salesMap = salesRedisService.getAllSales();
 
             if (salesMap.isEmpty()) {
@@ -45,10 +51,17 @@ public class SalesAggregationService {
             }
 
             updateProductPopular(salesMap);
-
             evictPopularProductsCache();
 
             log.info("판매 수 집계 완료 - 총 상품 수: {}", salesMap.size());
+
+            // 2. 3일 랭킹 스냅샷 생성 (하루 1회)
+            boolean snapshotSuccess = salesRedisService.createRankingSnapshot();
+            if (snapshotSuccess) {
+                log.info("3일 랭킹 스냅샷 생성 완료 (일별 갱신)");
+            } else {
+                log.warn("3일 랭킹 스냅샷 생성 실패");
+            }
 
         } catch (Exception e) {
             log.error("판매 수 집계 실패", e);
