@@ -11,6 +11,10 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -25,6 +29,30 @@ public class TestContainersConfig {
         );
         redis.start();
         return redis;
+    }
+
+    @Bean
+    @Primary
+    public RedisConnectionFactory redisConnectionFactory(RedisContainer redisContainer) {
+        LettuceConnectionFactory factory = new LettuceConnectionFactory(
+            redisContainer.getHost(),
+            redisContainer.getFirstMappedPort()
+        );
+        factory.afterPropertiesSet();
+        return factory;
+    }
+
+    @Bean
+    @Primary
+    public RedisTemplate<String, String> redisTemplate(RedisConnectionFactory redisConnectionFactory) {
+        RedisTemplate<String, String> template = new RedisTemplate<>();
+        template.setConnectionFactory(redisConnectionFactory);
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new StringRedisSerializer());
+        template.setHashKeySerializer(new StringRedisSerializer());
+        template.setHashValueSerializer(new StringRedisSerializer());
+        template.afterPropertiesSet();
+        return template;
     }
 
     @Bean

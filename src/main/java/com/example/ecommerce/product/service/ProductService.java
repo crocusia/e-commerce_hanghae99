@@ -12,6 +12,7 @@ import com.example.ecommerce.product.dto.ProductResponse;
 import com.example.ecommerce.product.repository.ProductPopularRepository;
 import com.example.ecommerce.product.repository.ProductRepository;
 import com.example.ecommerce.product.repository.ProductStockRepository;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final ProductStockRepository stockRepository;
     private final ProductPopularRepository popularRepository;
+    private final ProductSalesRedisService salesRedisService;
 
     @Transactional
     public ProductDetailResponse createProduct(ProductRequest input) {
@@ -68,7 +70,7 @@ public class ProductService {
     @Cacheable(value = "product:popular", key = "#limit")
     @Transactional(readOnly = true)
     public List<ProductResponse> getPopularProducts(int limit) {
-        log.debug("인기 상품 조회 (캐시 미스) - limit: {}", limit);
+        log.debug("인기 상품 조회 (DB 기반, 캐시 미스) - limit: {}", limit);
 
         List<ProductPopular> popularProducts = popularRepository.findTopN(limit);
 
@@ -87,6 +89,36 @@ public class ProductService {
 
         return popularProducts.stream()
             .map(ProductPopular::getProductId)
+            .map(productMap::get)
+            .filter(product -> product != null && product.isAvailable())
+            .map(ProductResponse::from)
+            .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductResponse> getPopularProductsFromRedis(int limit) {
+        log.debug("인기 상품 조회 (Redis 3일 랭킹) - limit: {}", limit);
+
+        // 스냅샷에서 Top N 조회 (없으면 실시간 계산 Fallback)
+        Map<Long, Long> rankings = salesRedisService.getTopProductsFromSnapshot(limit);
+
+        if (rankings.isEmpty()) {
+            log.warn("Redis 랭킹 데이터 없음 - 빈 리스트 반환");
+            return Collections.emptyList();
+        }
+
+        // 상품 ID 목록 추출
+        List<Long> productIds = new ArrayList<>(rankings.keySet());
+
+        // 상품 정보 조회
+        List<Product> products = productRepository.findAllByIds(productIds);
+
+        // 상품 ID → Product 매핑
+        Map<Long, Product> productMap = products.stream()
+            .collect(Collectors.toMap(Product::getProductId, Function.identity()));
+
+        // 순위 순서대로 ProductResponse 생성
+        return rankings.keySet().stream()
             .map(productMap::get)
             .filter(product -> product != null && product.isAvailable())
             .map(ProductResponse::from)
