@@ -6,7 +6,7 @@ import com.example.ecommerce.coupon.domain.status.DiscountType;
 import com.example.ecommerce.coupon.domain.vo.DiscountValue;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Schema(description = "쿠폰 응답")
 public record CouponResponse(
@@ -18,8 +18,8 @@ public record CouponResponse(
     @Schema(description = "총 수량") Integer totalQuantity,
     @Schema(description = "발급된 수량") Integer issuedQuantity,
     @Schema(description = "남은 수량") Integer remainingQuantity,
-    @Schema(description = "유효 기간 시작") LocalDate validFrom,
-    @Schema(description = "유효 기간 종료") LocalDate validUntil,
+    @Schema(description = "유효 기간 시작") LocalDateTime validFrom,
+    @Schema(description = "유효 기간 종료") LocalDateTime validUntil,
     @Schema(description = "최소 주문 금액") Long minOrderAmount,
     @Schema(description = "발급 가능 여부") Boolean canIssue,
     @Schema(description = "쿠폰 상태") CouponStatus status
@@ -28,7 +28,7 @@ public record CouponResponse(
         DiscountValue discountValue = coupon.getDiscountValue();
 
         Long safeDiscountPrice = discountValue.getDiscountPrice() != null
-            ? discountValue.getDiscountPrice().getAmount()
+            ? discountValue.getDiscountPrice()
             : null;
 
         Double safeDiscountRate = discountValue.getDiscountRate() != null

@@ -4,23 +4,31 @@ import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.common.exception.ErrorCode;
 import com.example.ecommerce.coupon.domain.status.DiscountType;
 import com.example.ecommerce.product.domain.vo.Money;
+import jakarta.persistence.Embeddable;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import java.util.Objects;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Embeddable
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class DiscountValue {
-    private final DiscountType discountType;
-    private Money discountPrice;
+    @Enumerated(EnumType.STRING)
+    private DiscountType discountType;
+    private Long discountPrice;
     private Double discountRate;
 
-    private DiscountValue(DiscountType discountType, Money discountPrice, Double discountRate) {
+    private DiscountValue(DiscountType discountType, Long discountPrice, Double discountRate) {
         validateDiscount(discountType, discountPrice, discountRate);
         this.discountType = discountType;
         this.discountPrice = discountPrice;
         this.discountRate = discountRate;
     }
 
-    public static DiscountValue fixed(Money discountPrice) {
+    public static DiscountValue fixed(Long discountPrice) {
         return new DiscountValue(DiscountType.FIXED, discountPrice, null);
     }
 
@@ -30,7 +38,7 @@ public class DiscountValue {
 
     public Money calculateDiscountAmount(Money orderAmount) {
         if (discountType == DiscountType.FIXED) {
-            return discountPrice;
+            return Money.of(discountPrice);
         } else {
             long discountAmount = (long) (orderAmount.getAmount() * discountRate / 100.0);
             return Money.of(discountAmount);
@@ -45,9 +53,9 @@ public class DiscountValue {
         return discountType == DiscountType.PERCENTAGE;
     }
 
-    private static void validateDiscount(DiscountType type, Money discountPrice, Double discountRate) {
+    private static void validateDiscount(DiscountType type, Long discountPrice, Double discountRate) {
         if (type == DiscountType.FIXED) {
-            if (discountPrice == null || discountPrice.isLessThanOrEqual(Money.of(0L))) {
+            if (discountPrice == null || discountPrice <= 0) {
                 throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
             }
         } else if (type == DiscountType.PERCENTAGE) {

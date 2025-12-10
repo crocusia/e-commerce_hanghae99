@@ -57,36 +57,48 @@ class UserCouponServiceTest {
         testUserCouponId = 1L;
 
         testCoupon = createTestCoupon(testCouponId, "테스트 쿠폰", 5000L, 100);
-        testUserCoupon = createTestUserCoupon(testUserCouponId, testUserId, testCouponId,
+        testUserCoupon = createTestUserCoupon(testUserCouponId, testUserId, testCoupon,
             LocalDateTime.now().plusDays(30));
     }
 
     private Coupon createTestCoupon(Long id, String name, Long discountPrice, int totalQuantity) {
+        LocalDateTime now = LocalDateTime.now();
         return Coupon.builder()
             .id(id)
             .name(name)
-            .discountValue(DiscountValue.fixed(Money.of(discountPrice)))
+            .discountValue(DiscountValue.fixed(discountPrice))
             .quantity(CouponQuantity.of(totalQuantity))
-            .validPeriod(ValidPeriod.of(LocalDate.now(), LocalDate.now().plusDays(30)))
+            .validPeriod(ValidPeriod.of(now, now.plusDays(30)))
             .minOrderAmount(Money.of(10000L))
+            .status(com.example.ecommerce.coupon.domain.status.CouponStatus.ACTIVE)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
-    private UserCoupon createTestUserCoupon(Long id, Long userId, Long couponId, LocalDateTime expiresAt) {
+    private UserCoupon createTestUserCoupon(Long id, Long userId, Coupon coupon, LocalDateTime expiresAt) {
+        LocalDateTime now = LocalDateTime.now();
         return UserCoupon.builder()
             .id(id)
             .userId(userId)
-            .couponId(couponId)
+            .coupon(coupon)
             .expiresAt(expiresAt)
+            .status(com.example.ecommerce.coupon.domain.status.UserCouponStatus.UNUSED)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
-    private UserCoupon createExpiredUserCoupon(Long id, Long userId, Long couponId) {
+    private UserCoupon createExpiredUserCoupon(Long id, Long userId, Coupon coupon) {
+        LocalDateTime now = LocalDateTime.now();
         return UserCoupon.builder()
             .id(id)
             .userId(userId)
-            .couponId(couponId)
-            .expiresAt(LocalDateTime.now().minusDays(1))
+            .coupon(coupon)
+            .expiresAt(now.minusDays(1))
+            .status(com.example.ecommerce.coupon.domain.status.UserCouponStatus.UNUSED)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
@@ -150,9 +162,11 @@ class UserCouponServiceTest {
         @DisplayName("사용 가능한 쿠폰만 조회할 수 있다")
         void getAvailableUserCoupons_Success() {
             // given
-            UserCoupon validUserCoupon = createTestUserCoupon(1L, testUserId, testCouponId,
+            UserCoupon validUserCoupon = createTestUserCoupon(1L, testUserId, testCoupon,
                 LocalDateTime.now().plusDays(30));
-            UserCoupon expiredUserCoupon = createExpiredUserCoupon(2L, testUserId, 2L);
+
+            Coupon expiredCoupon = createTestCoupon(2L, "만료된 쿠폰", 3000L, 50);
+            UserCoupon expiredUserCoupon = createExpiredUserCoupon(2L, testUserId, expiredCoupon);
 
             List<UserCoupon> userCoupons = Arrays.asList(validUserCoupon, expiredUserCoupon);
 

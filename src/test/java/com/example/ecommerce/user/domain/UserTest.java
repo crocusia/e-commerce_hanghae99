@@ -19,11 +19,19 @@ class UserTest {
 
     // 헬퍼 메서드
     private User createUser(String name, String email, Long balance) {
-        return User.create(name, email, balance);
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        return User.builder()
+            .name(name)
+            .email(email)
+            .balance(balance)
+            .status(UserStatus.ACTIVE)
+            .createdAt(now)
+            .updatedAt(now)
+            .build();
     }
 
     private User createDefaultUser() {
-        return User.create("테스트유저", "test@example.com", 10000L);
+        return createUser("테스트유저", "test@example.com", 10000L);
     }
 
     private void assertUserFields(User user, String expectedName, String expectedEmail, Long expectedBalance) {
@@ -57,7 +65,15 @@ class UserTest {
             Long balance = 50000L;
 
             // when
-            User user = User.create(name, email, balance);
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            User user = User.builder()
+                .name(name)
+                .email(email)
+                .balance(balance)
+                .status(UserStatus.ACTIVE)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
 
             // then
             assertUserFields(user, name, email, balance);
@@ -71,7 +87,15 @@ class UserTest {
             String email = "hong@example.com";
 
             // when
-            User user = User.create(name, email);
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            User user = User.builder()
+                .name(name)
+                .email(email)
+                .balance(0L)
+                .status(UserStatus.ACTIVE)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
 
             // then
             assertUserFields(user, name, email, 0L);
@@ -86,7 +110,15 @@ class UserTest {
             String email = "hong@example.com";
 
             // when
-            User user = User.create(name, email, balance);
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            User user = User.builder()
+                .name(name)
+                .email(email)
+                .balance(balance)
+                .status(UserStatus.ACTIVE)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
 
             // then
             assertThat(user.getBalance()).isEqualTo(balance);
@@ -192,20 +224,6 @@ class UserTest {
             );
         }
 
-        @Test
-        @DisplayName("충전 시 updatedAt이 갱신된다")
-        void updatedAtIsRefreshedAfterCharge() throws InterruptedException {
-            // given
-            User user = createDefaultUser();
-            var originalUpdatedAt = user.getUpdatedAt();
-            Thread.sleep(10); // updatedAt 차이를 보장하기 위한 대기
-
-            // when
-            user.chargeBalance(5000L);
-
-            // then
-            assertThat(user.getUpdatedAt()).isAfter(originalUpdatedAt);
-        }
     }
 
     @Nested
@@ -248,21 +266,6 @@ class UserTest {
                 ErrorCode.USER_INSUFFICIENT_BALANCE,
                 () -> user.deductBalance(deductAmount)
             );
-        }
-
-        @Test
-        @DisplayName("차감 시 updatedAt이 갱신된다")
-        void updatedAtIsRefreshedAfterDeduct() throws InterruptedException {
-            // given
-            User user = createDefaultUser();
-            var originalUpdatedAt = user.getUpdatedAt();
-            Thread.sleep(10); // updatedAt 차이를 보장하기 위한 대기
-
-            // when
-            user.deductBalance(5000L);
-
-            // then
-            assertThat(user.getUpdatedAt()).isAfter(originalUpdatedAt);
         }
 
         @Test

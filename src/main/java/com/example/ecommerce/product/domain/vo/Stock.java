@@ -3,11 +3,16 @@ package com.example.ecommerce.product.domain.vo;
 import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.common.exception.ErrorCode;
 import com.example.ecommerce.product.domain.status.StockStatus;
+import jakarta.persistence.Embeddable;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Embeddable
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Stock {
-    private final int quantity;
+    private int quantity;
 
     private Stock(int quantity) {
         validateQuantity(quantity);

@@ -1,34 +1,38 @@
 package com.example.ecommerce.user.domain;
 
+import com.example.ecommerce.common.domain.SoftDeleteEntity;
 import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.common.exception.ErrorCode;
 import com.example.ecommerce.user.domain.status.UserStatus;
-import java.time.LocalDateTime;
-import lombok.Builder;
+import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
+@Entity
+@Table(name = "users")
 @Getter
-public class User {
-    private final Long id;
-    private String name;
-    private String email;
-    private Long balance;
-    private UserStatus status;
-    private LocalDateTime deletedAt;
-    private final LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@SuperBuilder
+public class User extends SoftDeleteEntity {
 
-    @Builder
-    private User(Long id, String name, String email, Long balance) {
-        this.id = id;
-        this.name = name;
-        this.email = email;
-        this.balance = balance;
-        this.status = UserStatus.ACTIVE;
-        this.deletedAt = null;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
+    @Column(name = "name", nullable = false, length = 100)
+    private String name;
+
+    @Column(name = "email", unique = true, nullable = false, length = 255)
+    private String email;
+
+    @Column(name = "balance", nullable = false)
+    private Long balance;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private UserStatus status;
+
+    @Version
+    @Column(name = "version")
+    private Long version;
 
     // static factory method
     public static User create(String name, String email, Long balance) {
@@ -38,6 +42,7 @@ public class User {
             .name(name)
             .email(email)
             .balance(balance)
+            .status(UserStatus.ACTIVE)
             .build();
     }
 
@@ -50,7 +55,6 @@ public class User {
             throw new CustomException(ErrorCode.USER_INVALID_CHARGE_AMOUNT);
         }
         this.balance += amount;
-        this.updatedAt = LocalDateTime.now();
     }
 
     public void deductBalance(Long amount) {
@@ -58,7 +62,6 @@ public class User {
             throw new CustomException(ErrorCode.USER_INSUFFICIENT_BALANCE);
         }
         this.balance -= amount;
-        this.updatedAt = LocalDateTime.now();
     }
 
     public boolean hasEnoughBalance(Long requiredAmount) {

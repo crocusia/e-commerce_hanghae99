@@ -17,7 +17,7 @@ class DiscountValueTest {
     @DisplayName("정액 할인 DiscountValue를 생성할 수 있다")
     void createFixedDiscount() {
         // given
-        Money discountPrice = Money.of(5000L);
+        Long discountPrice = 5000L;
 
         // when
         DiscountValue discountValue = DiscountValue.fixed(discountPrice);
@@ -56,7 +56,7 @@ class DiscountValueTest {
     @DisplayName("정액 할인 금액이 0 이하면 생성할 수 없다")
     void createFixedDiscount_ZeroOrNegativePrice() {
         // when & then
-        assertThrows(CustomException.class, () -> DiscountValue.fixed(Money.of(0L)));
+        assertThrows(CustomException.class, () -> DiscountValue.fixed(0L));
     }
 
     @Test
@@ -85,7 +85,7 @@ class DiscountValueTest {
     @DisplayName("정액 할인 금액을 계산할 수 있다")
     void calculateFixedDiscountAmount() {
         // given
-        DiscountValue discountValue = DiscountValue.fixed(Money.of(5000L));
+        DiscountValue discountValue = DiscountValue.fixed(5000L);
         Money orderAmount = Money.of(30000L);
 
         // when
@@ -113,9 +113,9 @@ class DiscountValueTest {
     @DisplayName("같은 값을 가진 DiscountValue는 동등하다")
     void testEquals() {
         // given
-        DiscountValue discount1 = DiscountValue.fixed(Money.of(5000L));
-        DiscountValue discount2 = DiscountValue.fixed(Money.of(5000L));
-        DiscountValue discount3 = DiscountValue.fixed(Money.of(3000L));
+        DiscountValue discount1 = DiscountValue.fixed(5000L);
+        DiscountValue discount2 = DiscountValue.fixed(5000L);
+        DiscountValue discount3 = DiscountValue.fixed(3000L);
 
         // when & then
         assertThat(discount1).isEqualTo(discount2);
@@ -127,7 +127,7 @@ class DiscountValueTest {
     @DisplayName("정액 할인인지 확인할 수 있다")
     void isFixed() {
         // given
-        DiscountValue fixedDiscount = DiscountValue.fixed(Money.of(5000L));
+        DiscountValue fixedDiscount = DiscountValue.fixed(5000L);
         DiscountValue percentageDiscount = DiscountValue.percentage(10.0);
 
         // when & then
@@ -139,7 +139,7 @@ class DiscountValueTest {
     @DisplayName("정률 할인인지 확인할 수 있다")
     void isPercentage() {
         // given
-        DiscountValue fixedDiscount = DiscountValue.fixed(Money.of(5000L));
+        DiscountValue fixedDiscount = DiscountValue.fixed(5000L);
         DiscountValue percentageDiscount = DiscountValue.percentage(10.0);
 
         // when & then

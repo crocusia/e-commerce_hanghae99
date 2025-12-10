@@ -5,12 +5,14 @@ import com.example.ecommerce.product.domain.ProductPopular;
 import com.example.ecommerce.product.domain.ProductStock;
 import com.example.ecommerce.product.domain.status.ProductStatus;
 import com.example.ecommerce.product.domain.status.StockStatus;
+import com.example.ecommerce.product.domain.vo.Stock;
 import com.example.ecommerce.product.dto.ProductDetailResponse;
 import com.example.ecommerce.product.dto.ProductRequest;
 import com.example.ecommerce.product.dto.ProductResponse;
 import com.example.ecommerce.product.repository.ProductPopularRepository;
 import com.example.ecommerce.product.repository.ProductRepository;
 import com.example.ecommerce.product.repository.ProductStockRepository;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -18,9 +20,11 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -32,14 +36,16 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final ProductStockRepository stockRepository;
     private final ProductPopularRepository popularRepository;
+    private final ProductSalesRedisService salesRedisService;
 
+    @Transactional
     public ProductDetailResponse createProduct(ProductRequest input) {
         Product product = input.toEntity();
         Product savedProduct = productRepository.save(product);
 
         ProductStock productStock = ProductStock.builder()
             .id(savedProduct.getProductId())
-            .stock(input.stock())
+            .currentStock(Stock.of(input.stock()))
             .build();
         ProductStock savedProductStock = stockRepository.save(productStock);
         StockStatus status = productStock.getStockStatus(LOW_STOCK_THRESHOLD);
@@ -47,11 +53,13 @@ public class ProductService {
         return ProductDetailResponse.from(savedProduct, status, savedProductStock);
     }
 
+    @Transactional(readOnly = true)
     public Page<ProductResponse> getActiveProducts(Pageable pageable) {
-        Page<Product> products = productRepository.findByStatus(ProductStatus.ACTIVE, pageable);
+        Page<Product> products = productRepository.findByProductStatus(ProductStatus.ACTIVE, pageable);
         return products.map(ProductResponse::from);
     }
 
+    @Transactional(readOnly = true)
     public ProductDetailResponse getProductDetail(Long id){
         Product result = productRepository.findByIdOrElseThrow(id);
         ProductStock stock = stockRepository.findByIdOrElseThrow(id);
@@ -59,7 +67,11 @@ public class ProductService {
         return ProductDetailResponse.from(result, status, stock);
     }
 
+    @Cacheable(value = "product:popular", key = "#limit")
+    @Transactional(readOnly = true)
     public List<ProductResponse> getPopularProducts(int limit) {
+        log.debug("인기 상품 조회 (DB 기반, 캐시 미스) - limit: {}", limit);
+
         List<ProductPopular> popularProducts = popularRepository.findTopN(limit);
 
         if (popularProducts.isEmpty()) {
@@ -77,6 +89,36 @@ public class ProductService {
 
         return popularProducts.stream()
             .map(ProductPopular::getProductId)
+            .map(productMap::get)
+            .filter(product -> product != null && product.isAvailable())
+            .map(ProductResponse::from)
+            .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductResponse> getPopularProductsFromRedis(int limit) {
+        log.debug("인기 상품 조회 (Redis 3일 랭킹) - limit: {}", limit);
+
+        // 스냅샷에서 Top N 조회 (없으면 실시간 계산 Fallback)
+        Map<Long, Long> rankings = salesRedisService.getTopProductsFromSnapshot(limit);
+
+        if (rankings.isEmpty()) {
+            log.warn("Redis 랭킹 데이터 없음 - 빈 리스트 반환");
+            return Collections.emptyList();
+        }
+
+        // 상품 ID 목록 추출
+        List<Long> productIds = new ArrayList<>(rankings.keySet());
+
+        // 상품 정보 조회
+        List<Product> products = productRepository.findAllByIds(productIds);
+
+        // 상품 ID → Product 매핑
+        Map<Long, Product> productMap = products.stream()
+            .collect(Collectors.toMap(Product::getProductId, Function.identity()));
+
+        // 순위 순서대로 ProductResponse 생성
+        return rankings.keySet().stream()
             .map(productMap::get)
             .filter(product -> product != null && product.isAvailable())
             .map(ProductResponse::from)

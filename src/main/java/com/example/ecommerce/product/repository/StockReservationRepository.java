@@ -8,7 +8,11 @@ public interface StockReservationRepository {
 
     StockReservation save(StockReservation stockReservation);
 
+    StockReservation findByIdOrElseThrow(Long id);
+
     List<StockReservation> findPendingByOrderId(Long orderId);
 
     List<StockReservation> findExpiredReservations(LocalDateTime time);
+
+    void deleteAllInBatch();
 }

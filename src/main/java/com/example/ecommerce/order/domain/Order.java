@@ -1,66 +1,100 @@
 package com.example.ecommerce.order.domain;
 
+import com.example.ecommerce.common.domain.BaseEntity;
 import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.common.exception.ErrorCode;
 import com.example.ecommerce.order.domain.status.OrderStatus;
-import java.time.LocalDateTime;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import java.util.ArrayList;
 import java.util.List;
-import lombok.Builder;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
+@Entity
+@Table(name = "orders")
 @Getter
-public class Order {
-    private final Long id;
-    private final Long userId;
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@SuperBuilder
+public class Order extends BaseEntity {
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @Column(name = "user_coupon_id")
     private Long userCouponId;
+
+    @Column(name = "total_amount", nullable = false)
     private Long totalAmount;
+
+    @Column(name = "discount_amount", nullable = false)
     private Long discountAmount;
+
+    @Column(name = "final_amount", nullable = false)
     private Long finalAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
     private OrderStatus status;
-    private List<OrderItem> orderItems;
-    private final LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 
-    @Builder
-    private Order(Long id, Long userId, Long userCouponId, Long discountAmount,
-        List<OrderItem> orderItems) {
+    @jakarta.persistence.Version
+    @Column(name = "version")
+    private Long version;
 
-        this.id = id;
-        this.userId = userId;
-        this.userCouponId = userCouponId;
-        this.orderItems = new ArrayList<>(orderItems);
-        this.totalAmount = calculateTotalAmount(orderItems);
-
-        // 할인 금액 처리
-        if (discountAmount != null && discountAmount > 0) {
-            this.discountAmount = discountAmount;
-            this.finalAmount = this.totalAmount - discountAmount;
-        } else {
-            this.discountAmount = 0L;
-            this.finalAmount = this.totalAmount;
-        }
-
-        this.status = OrderStatus.PENDING;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
+    @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
+    private List<OrderItem> orderItems = new ArrayList<>();
 
     public static Order create(Long userId, List<OrderItem> orderItems) {
-        return Order.builder()
+        Long totalAmount = calculateTotalAmount(orderItems);
+
+        Order order = Order.builder()
             .userId(userId)
-            .orderItems(orderItems)
+            .totalAmount(totalAmount)
+            .discountAmount(0L)
+            .finalAmount(totalAmount)
+            .status(OrderStatus.PENDING_RESERVATION)
             .build();
+
+        orderItems.forEach(order::addOrderItem);
+        return order;
+    }
+
+    public void addOrderItem(OrderItem orderItem) {
+        if (this.orderItems == null) {
+            this.orderItems = new ArrayList<>();
+        }
+        this.orderItems.add(orderItem);
+        orderItem.setOrder(this);
     }
 
     public void applyCoupon(Long userCouponId, Long discountAmount){
-        if(this.status != OrderStatus.PENDING){
+        if(this.status != OrderStatus.PENDING && this.status != OrderStatus.PENDING_RESERVATION){
             throw new CustomException(ErrorCode.INVALID_ORDER_STATUS_APPLY_COUPON);
         }
 
         applyDiscount(discountAmount);
 
         this.userCouponId = userCouponId;
+    }
+
+    public Long cancelCoupon() {
+        if (this.userCouponId == null) {
+            return null;
+        }
+
+        Long previousCouponId = this.userCouponId;
+        this.userCouponId = null;
+        this.discountAmount = 0L;
+        this.finalAmount = this.totalAmount;
+
+        return previousCouponId;
     }
 
     private void applyDiscount(Long discountAmount) {
@@ -72,24 +106,41 @@ public class Order {
         }
         this.discountAmount = discountAmount;
         this.finalAmount = this.totalAmount - discountAmount;
-        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void validateForPayment() {
+        if (this.status != OrderStatus.PENDING) {
+            throw new CustomException(ErrorCode.INVALID_ORDER_STATUS_PROCESS_PAYMENT);
+        }
+    }
+
+    public void completeReservation() {
+        if (this.status != OrderStatus.PENDING_RESERVATION) {
+            throw new IllegalStateException("예약 완료 처리는 PENDING_RESERVATION 상태에서만 가능합니다.");
+        }
+        this.status = OrderStatus.PENDING;
     }
 
     public void completePayment() {
         this.status = OrderStatus.PAYMENT_COMPLETED;
-        this.updatedAt = LocalDateTime.now();
     }
 
     public void cancel() {
         this.status = OrderStatus.CANCELLED;
-        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void failReservation() {
+        if (this.status != OrderStatus.PENDING_RESERVATION) {
+            throw new IllegalStateException("예약 실패 처리는 PENDING_RESERVATION 상태에서만 가능합니다.");
+        }
+        this.status = OrderStatus.RESERVATION_FAILED;
     }
 
     public List<OrderItem> getOrderItems() {
         return new ArrayList<>(orderItems);
     }
 
-    private Long calculateTotalAmount(List<OrderItem> orderItems) {
+    private static Long calculateTotalAmount(List<OrderItem> orderItems) {
         return orderItems.stream()
             .mapToLong(OrderItem::getSubtotal)
             .sum();

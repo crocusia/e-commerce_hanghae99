@@ -2,48 +2,53 @@ package com.example.ecommerce.coupon.domain.vo;
 
 import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.common.exception.ErrorCode;
-import java.time.LocalDate;
+import jakarta.persistence.Embeddable;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Embeddable
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ValidPeriod {
 
-    private LocalDate validFrom;    // 유효 시작일
-    private LocalDate validUntil;   // 유효 종료일
+    private LocalDateTime validFrom;    // 유효 시작일
+    private LocalDateTime validUntil;   // 유효 종료일
 
-    private ValidPeriod(LocalDate validFrom, LocalDate validUntil) {
+    private ValidPeriod(LocalDateTime validFrom, LocalDateTime validUntil) {
         validatePeriod(validFrom, validUntil);
         this.validFrom = validFrom;
         this.validUntil = validUntil;
     }
 
-    public static ValidPeriod of(LocalDate validFrom, LocalDate validUntil) {
+    public static ValidPeriod of(LocalDateTime validFrom, LocalDateTime validUntil) {
         return new ValidPeriod(validFrom, validUntil);
     }
 
     public boolean isValid() {
-        return isValidAt(LocalDate.now());
+        return isValidAt(LocalDateTime.now());
     }
 
-    public boolean isValidAt(LocalDate date) {
+    public boolean isValidAt(LocalDateTime date) {
         return !date.isBefore(validFrom) && !date.isAfter(validUntil);
     }
 
     public boolean isExpired() {
-        return LocalDate.now().isAfter(validUntil);
+        return LocalDateTime.now().isAfter(validUntil);
     }
 
     public boolean isNotStarted() {
-        return LocalDate.now().isBefore(validFrom);
+        return LocalDateTime.now().isBefore(validFrom);
     }
 
     public long getDays() {
         return ChronoUnit.DAYS.between(validFrom, validUntil);
     }
 
-    private static void validatePeriod(LocalDate validFrom, LocalDate validUntil) {
+    private static void validatePeriod(LocalDateTime validFrom, LocalDateTime validUntil) {
         if (validFrom == null || validUntil == null) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }

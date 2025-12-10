@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,15 +15,17 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 @DisplayName("StockReservation 도메인 테스트")
 class StockReservationTest {
 
-    private static final Duration DEFAULT_TTL = Duration.ofMinutes(10);
-
     // 헬퍼 메서드
     private StockReservation create(Long orderId, Long productId, int quantity) {
+        LocalDateTime now = LocalDateTime.now();
         return StockReservation.builder()
             .orderId(orderId)
             .productId(productId)
             .quantity(quantity)
-            .ttl(DEFAULT_TTL)
+            .status(ReservationStatus.RESERVED)
+            .expiresAt(now.plusMinutes(10))
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
@@ -56,25 +57,25 @@ class StockReservationTest {
         }
 
         @Test
-        @DisplayName("예약 생성 시 만료 시간이 TTL만큼 설정된다")
+        @DisplayName("예약 생성 시 만료 시간이 설정된다")
         void reservationExpiresAtIsSetCorrectly() {
             // given
-            Duration ttl = Duration.ofMinutes(15);
-            LocalDateTime beforeCreation = LocalDateTime.now();
+            LocalDateTime expectedExpiration = LocalDateTime.now().plusMinutes(15);
 
             // when
+            LocalDateTime now = LocalDateTime.now();
             StockReservation reservation = StockReservation.builder()
                 .orderId(1L)
                 .productId(100L)
                 .quantity(5)
-                .ttl(ttl)
+                .status(ReservationStatus.RESERVED)
+                .expiresAt(expectedExpiration)
+                .createdAt(now)
+                .updatedAt(now)
                 .build();
 
             // then
-            LocalDateTime expectedExpiration = beforeCreation.plus(ttl);
-            assertThat(reservation.getExpiresAt())
-                .isAfterOrEqualTo(expectedExpiration)
-                .isBeforeOrEqualTo(LocalDateTime.now().plus(ttl));
+            assertThat(reservation.getExpiresAt()).isEqualTo(expectedExpiration);
         }
 
         @Test

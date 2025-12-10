@@ -4,8 +4,10 @@ import com.example.ecommerce.common.exception.CustomException;
 import com.example.ecommerce.product.domain.ProductStock;
 import com.example.ecommerce.product.domain.StockReservation;
 import com.example.ecommerce.product.domain.status.ReservationStatus;
+import com.example.ecommerce.product.domain.vo.Stock;
 import com.example.ecommerce.product.repository.ProductStockRepository;
 import com.example.ecommerce.product.repository.StockReservationRepository;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -16,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,9 +42,14 @@ class StockServiceTest {
     private StockService stockService;
 
     private ProductStock createProductStock(Long productId, int stock, int reserved) {
+        LocalDateTime now = LocalDateTime.now();
         ProductStock productStock = ProductStock.builder()
             .id(productId)
-            .stock(stock)
+            .productId(productId)
+            .currentStock(Stock.of(stock))
+            .reservedStock(0)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
         if (reserved > 0) {
             productStock.increaseReservedStock(reserved);
@@ -50,17 +58,17 @@ class StockServiceTest {
     }
 
     private StockReservation createReservation(Long id, Long orderId, Long productId, int quantity, ReservationStatus status) {
-        StockReservation reservation = StockReservation.builder()
+        LocalDateTime now = LocalDateTime.now();
+        return StockReservation.builder()
             .id(id)
             .orderId(orderId)
             .productId(productId)
             .quantity(quantity)
-            .ttl(Duration.ofMinutes(10))
+            .status(status)
+            .expiresAt(now.plusMinutes(10))
+            .createdAt(now)
+            .updatedAt(now)
             .build();
-        if (status != ReservationStatus.RESERVED) {
-            reservation.updateStatus(status);
-        }
-        return reservation;
     }
 
     @Nested
@@ -151,99 +159,222 @@ class StockServiceTest {
 
     @Nested
     @DisplayName("재고 확정 테스트")
-    class ConfirmTest {
+    class ConfirmReservationTest {
 
         @Test
         @DisplayName("예약을 확정하고 재고를 차감한다")
-        void confirm() {
+        void confirmReservation() {
             // given
+            Long reservationId = 1L;
             Long orderId = 1L;
             Long productId = 100L;
             int quantity = 10;
 
-            StockReservation reservation = createReservation(1L, orderId, productId, quantity, ReservationStatus.RESERVED);
+            StockReservation reservation = createReservation(reservationId, orderId, productId, quantity, ReservationStatus.RESERVED);
             ProductStock stock = createProductStock(productId, 100, quantity);
 
-            given(reservationRepository.findPendingByOrderId(orderId)).willReturn(Collections.singletonList(reservation));
+            given(reservationRepository.findByIdOrElseThrow(reservationId)).willReturn(reservation);
             given(stockRepository.findByIdOrElseThrow(productId)).willReturn(stock);
 
             int initialStock = stock.getCurrentStock().getQuantity();
             int initialReserved = stock.getReservedStock();
 
             // when
-            stockService.confirm(orderId);
+            stockService.confirmReservation(productId, reservationId);
 
             // then
             assertAll(
                 () -> assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.CONFIRMED),
                 () -> assertThat(stock.getCurrentStock().getQuantity()).isEqualTo(initialStock - quantity),
                 () -> assertThat(stock.getReservedStock()).isEqualTo(initialReserved - quantity),
-                () -> then(reservationRepository).should().findPendingByOrderId(orderId),
+                () -> then(reservationRepository).should().findByIdOrElseThrow(reservationId),
+                () -> then(stockRepository).should().findByIdOrElseThrow(productId),
                 () -> then(stockRepository).should().save(stock),
                 () -> then(reservationRepository).should().save(reservation)
             );
         }
 
         @Test
-        @DisplayName("확정할 예약이 없으면 아무 작업도 수행하지 않는다")
-        void confirmWithNoReservations() {
+        @DisplayName("확정 후 재고와 예약재고가 모두 감소한다")
+        void confirmDecreasesStockAndReservedStock() {
             // given
+            Long reservationId = 1L;
             Long orderId = 1L;
-            given(reservationRepository.findPendingByOrderId(orderId)).willReturn(Collections.emptyList());
+            Long productId = 100L;
+            int quantity = 10;
+
+            StockReservation reservation = createReservation(reservationId, orderId, productId, quantity, ReservationStatus.RESERVED);
+            ProductStock stock = createProductStock(productId, 100, quantity);
+
+            given(reservationRepository.findByIdOrElseThrow(reservationId)).willReturn(reservation);
+            given(stockRepository.findByIdOrElseThrow(productId)).willReturn(stock);
+
+            int initialStock = stock.getCurrentStock().getQuantity();
+            int initialReserved = stock.getReservedStock();
 
             // when
-            stockService.confirm(orderId);
+            stockService.confirmReservation(productId, reservationId);
 
             // then
-            then(stockRepository).should(times(0)).save(any(ProductStock.class));
+            assertAll(
+                () -> assertThat(stock.getCurrentStock().getQuantity()).isEqualTo(initialStock - quantity),
+                () -> assertThat(stock.getReservedStock()).isEqualTo(initialReserved - quantity)
+            );
         }
     }
 
     @Nested
     @DisplayName("재고 예약 해제 테스트")
-    class ReleaseTest {
+    class ReleaseReservationTest {
 
         @Test
         @DisplayName("예약을 해제하고 예약 재고를 감소시킨다")
-        void release() {
+        void releaseReservation() {
             // given
+            Long reservationId = 1L;
             Long orderId = 1L;
             Long productId = 100L;
             int quantity = 10;
 
-            StockReservation reservation = createReservation(1L, orderId, productId, quantity, ReservationStatus.RESERVED);
+            StockReservation reservation = createReservation(reservationId, orderId, productId, quantity, ReservationStatus.RESERVED);
             ProductStock stock = createProductStock(productId, 100, quantity);
 
-            given(reservationRepository.findPendingByOrderId(orderId)).willReturn(Collections.singletonList(reservation));
+            given(reservationRepository.findByIdOrElseThrow(reservationId)).willReturn(reservation);
             given(stockRepository.findByIdOrElseThrow(productId)).willReturn(stock);
 
             int initialReserved = stock.getReservedStock();
 
             // when
-            stockService.release(orderId);
+            stockService.releaseReservation(productId, reservationId);
 
             // then
             assertAll(
                 () -> assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.RELEASED),
                 () -> assertThat(stock.getReservedStock()).isEqualTo(initialReserved - quantity),
-                () -> then(reservationRepository).should().findPendingByOrderId(orderId),
+                () -> then(reservationRepository).should().findByIdOrElseThrow(reservationId),
+                () -> then(stockRepository).should().findByIdOrElseThrow(productId),
                 () -> then(stockRepository).should().save(stock),
                 () -> then(reservationRepository).should().save(reservation)
             );
         }
 
         @Test
-        @DisplayName("해제할 예약이 없으면 아무 작업도 수행하지 않는다")
-        void releaseWithNoReservations() {
+        @DisplayName("해제 시 currentStock은 변경되지 않고 reservedStock만 감소한다")
+        void releaseOnlyDecreasesReservedStock() {
             // given
+            Long reservationId = 1L;
             Long orderId = 1L;
-            given(reservationRepository.findPendingByOrderId(orderId)).willReturn(Collections.emptyList());
+            Long productId = 100L;
+            int quantity = 10;
+
+            StockReservation reservation = createReservation(reservationId, orderId, productId, quantity, ReservationStatus.RESERVED);
+            ProductStock stock = createProductStock(productId, 100, quantity);
+
+            given(reservationRepository.findByIdOrElseThrow(reservationId)).willReturn(reservation);
+            given(stockRepository.findByIdOrElseThrow(productId)).willReturn(stock);
+
+            int initialStock = stock.getCurrentStock().getQuantity();
+            int initialReserved = stock.getReservedStock();
 
             // when
-            stockService.release(orderId);
+            stockService.releaseReservation(productId, reservationId);
 
             // then
-            then(stockRepository).should(times(0)).save(any(ProductStock.class));
+            assertAll(
+                () -> assertThat(stock.getCurrentStock().getQuantity()).isEqualTo(initialStock),
+                () -> assertThat(stock.getReservedStock()).isEqualTo(initialReserved - quantity),
+                () -> assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.RELEASED)
+            );
+        }
+    }
+
+    @Nested
+    @DisplayName("재고 예약 만료 테스트")
+    class ExpireReservationTest {
+
+        @Test
+        @DisplayName("만료된 예약을 해제하고 예약 재고를 감소시킨다")
+        void expireReservation() {
+            // given
+            Long reservationId = 1L;
+            Long orderId = 1L;
+            Long productId = 100L;
+            int quantity = 10;
+
+            StockReservation expiredReservation = createReservation(
+                reservationId, orderId, productId, quantity, ReservationStatus.RESERVED
+            );
+            ProductStock stock = createProductStock(productId, 100, quantity);
+
+            given(reservationRepository.findByIdOrElseThrow(reservationId)).willReturn(expiredReservation);
+            given(stockRepository.findByIdOrElseThrow(productId)).willReturn(stock);
+
+            int initialReserved = stock.getReservedStock();
+
+            // when
+            stockService.expireReservation(productId, reservationId);
+
+            // then
+            assertAll(
+                () -> assertThat(expiredReservation.getStatus()).isEqualTo(ReservationStatus.RELEASED),
+                () -> assertThat(stock.getReservedStock()).isEqualTo(initialReserved - quantity),
+                () -> then(reservationRepository).should().findByIdOrElseThrow(reservationId),
+                () -> then(stockRepository).should().findByIdOrElseThrow(productId),
+                () -> then(stockRepository).should().save(stock),
+                () -> then(reservationRepository).should().save(expiredReservation)
+            );
+        }
+
+        @Test
+        @DisplayName("만료 처리 시 currentStock은 변경되지 않는다")
+        void expireDoesNotChangeCurrentStock() {
+            // given
+            Long reservationId = 1L;
+            Long orderId = 1L;
+            Long productId = 100L;
+            int quantity = 10;
+
+            StockReservation expiredReservation = createReservation(
+                reservationId, orderId, productId, quantity, ReservationStatus.RESERVED
+            );
+            ProductStock stock = createProductStock(productId, 100, quantity);
+
+            given(reservationRepository.findByIdOrElseThrow(reservationId)).willReturn(expiredReservation);
+            given(stockRepository.findByIdOrElseThrow(productId)).willReturn(stock);
+
+            int initialStock = stock.getCurrentStock().getQuantity();
+
+            // when
+            stockService.expireReservation(productId, reservationId);
+
+            // then
+            assertThat(stock.getCurrentStock().getQuantity()).isEqualTo(initialStock);
+        }
+
+        @Test
+        @DisplayName("expireReservations는 만료된 예약들을 일괄 처리한다")
+        void expireReservations() {
+            // given
+            Long productId = 100L;
+
+            StockReservation reservation1 = createReservation(1L, 1L, productId, 5, ReservationStatus.RESERVED);
+            StockReservation reservation2 = createReservation(2L, 2L, productId, 3, ReservationStatus.RESERVED);
+
+            ProductStock stock = createProductStock(productId, 100, 8);
+
+            given(reservationRepository.findExpiredReservations(any(LocalDateTime.class)))
+                .willReturn(List.of(reservation1, reservation2));
+            given(reservationRepository.findByIdOrElseThrow(1L)).willReturn(reservation1);
+            given(reservationRepository.findByIdOrElseThrow(2L)).willReturn(reservation2);
+            given(stockRepository.findByIdOrElseThrow(productId)).willReturn(stock);
+
+            // when
+            stockService.expireReservations();
+
+            // then
+            then(reservationRepository).should().findExpiredReservations(any(LocalDateTime.class));
+            then(stockRepository).should(times(2)).findByIdOrElseThrow(productId);
+            then(stockRepository).should(times(2)).save(stock);
         }
     }
 }

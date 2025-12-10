@@ -1,38 +1,45 @@
 package com.example.ecommerce.order.domain;
 
+import com.example.ecommerce.common.domain.BaseEntity;
 import com.example.ecommerce.order.domain.status.OrderItemStatus;
-import java.time.LocalDateTime;
-import lombok.Builder;
+import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
+@Entity
+@Table(name = "order_items")
 @Getter
-public class OrderItem {
-    private final Long id;
-    private final Long orderId;
-    private final Long productId;
-    private final String productName;
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@SuperBuilder
+public class OrderItem extends BaseEntity {
+
+    @Column(name = "order_id")
+    private Long orderId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", insertable = false, updatable = false)
+    private Order order;
+
+    @Column(name = "product_id", nullable = false)
+    private Long productId;
+
+    @Column(name = "product_name", nullable = false, length = 255)
+    private String productName;
+
+    @Column(name = "quantity", nullable = false)
     private Integer quantity;
-    private final Long unitPrice;
+
+    @Column(name = "unit_price", nullable = false)
+    private Long unitPrice;
+
+    @Column(name = "subtotal", nullable = false)
     private Long subtotal;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
     private OrderItemStatus status;
-    private final LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-
-    @Builder
-    private OrderItem(Long id, Long orderId, Long productId, String productName,
-        Integer quantity, Long unitPrice) {
-
-        this.id = id;
-        this.orderId = orderId;
-        this.productId = productId;
-        this.productName = productName;
-        this.quantity = quantity;
-        this.unitPrice = unitPrice;
-        this.subtotal = quantity * unitPrice;
-        this.status = OrderItemStatus.ORDERED;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
 
     public static OrderItem create(Long productId, String productName,
         Integer quantity, Long unitPrice) {
@@ -41,6 +48,12 @@ public class OrderItem {
             .productName(productName)
             .quantity(quantity)
             .unitPrice(unitPrice)
+            .subtotal(quantity * unitPrice)
+            .status(OrderItemStatus.ORDERED)
             .build();
+    }
+
+    public void setOrder(Order order) {
+        this.order = order;
     }
 }

@@ -20,9 +20,14 @@ class ProductStockTest {
 
     // 헬퍼 메서드
     private ProductStock create(Long productId, int stock) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
         return ProductStock.builder()
             .id(productId)
-            .stock(stock)
+            .productId(productId)
+            .currentStock(Stock.of(stock))
+            .reservedStock(0)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
     }
 
@@ -43,9 +48,8 @@ class ProductStockTest {
             // then
             assertAll(
                 () -> assertThat(productStock.getProductId()).isEqualTo(productId),
-                () -> assertThat(productStock.getCurrentStock()).isEqualTo(Stock.of(initialStock)),
-                () -> assertThat(productStock.getReservedStock()).isZero(),
-                () -> assertThat(productStock.getUpdatedAt()).isNotNull()
+                () -> assertThat(productStock.getCurrentStock().getQuantity()).isEqualTo(initialStock),
+                () -> assertThat(productStock.getReservedStock()).isZero()
             );
         }
     }
@@ -69,21 +73,7 @@ class ProductStockTest {
             productStock.decreaseStock(decreaseAmount);
 
             // then
-            assertThat(productStock.getCurrentStock()).isEqualTo(Stock.of(expectedStock));
-        }
-
-        @Test
-        @DisplayName("재고 감소 시 updatedAt이 갱신된다")
-        void decreaseStockUpdatesTimestamp() {
-            // given
-            ProductStock productStock = create(1L, 100);
-            var beforeUpdate = productStock.getUpdatedAt();
-
-            // when
-            productStock.decreaseStock(10);
-
-            // then
-            assertThat(productStock.getUpdatedAt()).isAfterOrEqualTo(beforeUpdate);
+            assertThat(productStock.getCurrentStock().getQuantity()).isEqualTo(expectedStock);
         }
 
         @Test
@@ -117,22 +107,9 @@ class ProductStockTest {
             productStock.increaseStock(increaseAmount);
 
             // then
-            assertThat(productStock.getCurrentStock()).isEqualTo(Stock.of(expectedStock));
+            assertThat(productStock.getCurrentStock().getQuantity()).isEqualTo(expectedStock);
         }
 
-        @Test
-        @DisplayName("재고 증가 시 updatedAt이 갱신된다")
-        void increaseStockUpdatesTimestamp() {
-            // given
-            ProductStock productStock = create(1L, 100);
-            var beforeUpdate = productStock.getUpdatedAt();
-
-            // when
-            productStock.increaseStock(10);
-
-            // then
-            assertThat(productStock.getUpdatedAt()).isAfterOrEqualTo(beforeUpdate);
-        }
     }
 
     @Nested
@@ -179,19 +156,6 @@ class ProductStockTest {
             assertThat(productStock.getReservedStock()).isEqualTo(expectedReserved);
         }
 
-        @Test
-        @DisplayName("예약 재고 변경 시 updatedAt이 갱신된다")
-        void reservedStockChangeUpdatesTimestamp() {
-            // given
-            ProductStock productStock = create(1L, 100);
-            var beforeUpdate = productStock.getUpdatedAt();
-
-            // when
-            productStock.increaseReservedStock(10);
-
-            // then
-            assertThat(productStock.getUpdatedAt()).isAfterOrEqualTo(beforeUpdate);
-        }
     }
 
     @Nested

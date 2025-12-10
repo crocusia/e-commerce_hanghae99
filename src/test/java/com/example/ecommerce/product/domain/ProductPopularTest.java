@@ -22,6 +22,7 @@ class ProductPopularTest {
             .productId(productId)
             .salesCount(salesCount)
             .rank(rank)
+            .lastAggregatedAt(LocalDateTime.now())
             .build();
     }
 

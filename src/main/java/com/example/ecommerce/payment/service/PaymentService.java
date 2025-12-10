@@ -5,14 +5,16 @@ import com.example.ecommerce.common.exception.ErrorCode;
 import com.example.ecommerce.order.domain.Order;
 import com.example.ecommerce.order.repository.OrderRepository;
 import com.example.ecommerce.payment.domain.Payment;
-import com.example.ecommerce.payment.dto.PaymentResponse;
+import com.example.ecommerce.payment.domain.status.PaymentStatus;
+import com.example.ecommerce.payment.dto.PaymentRequest;
+import com.example.ecommerce.payment.dto.PaymentResult;
 import com.example.ecommerce.payment.repository.PaymentRepository;
-import com.example.ecommerce.product.service.StockService;
 import com.example.ecommerce.user.domain.User;
 import com.example.ecommerce.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -22,9 +24,12 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
-    private final StockService stockService;
 
-    public PaymentResponse processPayment(Long userId, Long orderId) {
+    @Transactional
+    public Payment createPayment(PaymentRequest request) {
+
+        Long orderId = request.orderId();
+        Long userId = request.userId();
 
         Order order = orderRepository.findByIdOrElseThrow(orderId);
 
@@ -32,48 +37,59 @@ public class PaymentService {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
-        User user = userRepository.findByIdOrElseThrow(userId);
+        order.validateForPayment();
 
         Payment payment = Payment.builder()
             .orderId(orderId)
             .userId(userId)
             .amount(order.getFinalAmount())
+            .status(PaymentStatus.PENDING)
             .build();
-        Payment savedPayment = paymentRepository.save(payment);
-        Payment finalPayment = null;
+
+        return paymentRepository.save(payment);
+    }
+
+    @Transactional
+    public PaymentResult processPayment(Long paymentId) {
+        Payment payment = paymentRepository.findByIdOrElseThrow(paymentId);
+
+        Long orderId = payment.getOrderId();
+        Long userId = payment.getUserId();
+
+        Order order = orderRepository.findByIdOrElseThrow(orderId);
+
+        if (!order.getUserId().equals(userId)) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        order.validateForPayment();
+
+        User user = userRepository.findByIdOrElseThrow(userId);
+
         try {
+            // 잔액 차감 (낙관적 락)
             user.deductBalance(order.getFinalAmount());
+
+            // 결제 완료 처리
+            payment.complete();
+            paymentRepository.save(payment);
+
             userRepository.save(user);
 
-            //결제 성공 - 실제 재고 차감
-            stockService.confirm(orderId);
+            log.info("결제 처리 성공 - paymentId: {}, orderId: {}, amount: {}",
+                payment.getId(), order.getId(), order.getFinalAmount());
 
-            order.completePayment();
-
-            savedPayment.complete();
+            return PaymentResult.success(payment, order, user);
 
         } catch (CustomException e) {
-            // 결제 실패 - 주문 취소
-            order.cancel();
 
-            savedPayment.fail(e.getMessage());
+            payment.fail(e.getMessage());
+            paymentRepository.save(payment);
 
-            log.error("Payment failed for order: {}, user: {}, error: {}",
-                orderId, userId, e.getMessage());
+            log.warn("결제 처리 실패 - paymentId: {}, orderId: {}, reason: {}",
+                payment.getId(), order.getId(), e.getMessage());
 
-            throw e;
-        } finally {
-            // 예약 재고 해제 (성공/실패 모두)
-            try {
-                stockService.release(orderId);
-            } catch (Exception releaseException) {
-                log.error("Failed to release stock reservations for order: {}",
-                    orderId, releaseException);
-            }
-
-            orderRepository.save(order);
-            finalPayment = paymentRepository.save(savedPayment);
+            return PaymentResult.failure(payment, order, e.getMessage());
         }
-        return PaymentResponse.from(finalPayment);
     }
 }

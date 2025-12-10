@@ -1,5 +1,6 @@
 package com.example.ecommerce.user.service;
 
+import com.example.ecommerce.common.aop.DistributedLock;
 import com.example.ecommerce.user.domain.User;
 import com.example.ecommerce.user.dto.BalanceDeductRequest;
 import com.example.ecommerce.user.dto.UserCreateRequest;
@@ -8,6 +9,7 @@ import com.example.ecommerce.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -26,6 +28,8 @@ public class UserService {
         return UserResponse.from(user);
     }
 
+    @DistributedLock(key = "'user:balance:lock:' + #request.userId()", waitTime = 5, leaseTime = 3)
+    @Transactional
     public UserResponse deductBalance(BalanceDeductRequest request) {
         User user = userRepository.findByIdOrElseThrow(request.userId());
 

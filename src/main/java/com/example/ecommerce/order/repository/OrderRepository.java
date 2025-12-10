@@ -1,6 +1,8 @@
 package com.example.ecommerce.order.repository;
 
 import com.example.ecommerce.order.domain.Order;
+import com.example.ecommerce.order.domain.status.OrderStatus;
+import java.util.List;
 import java.util.Optional;
 
 public interface OrderRepository {
@@ -11,4 +13,8 @@ public interface OrderRepository {
     Order findByIdOrElseThrow(Long id);
 
     void delete(Long id);
+
+    List<Order> findByStatus(OrderStatus status);
+
+    void deleteAllInBatch();
 }

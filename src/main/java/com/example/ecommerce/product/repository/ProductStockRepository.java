@@ -8,5 +8,9 @@ public interface ProductStockRepository {
 
     Optional<ProductStock> findById(Long id);
 
+    Optional<ProductStock> findByProductId(Long productId);
+
     ProductStock findByIdOrElseThrow(Long id);
+
+    void deleteAllInBatch();
 }

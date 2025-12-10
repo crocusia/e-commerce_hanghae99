@@ -16,4 +16,6 @@ public interface UserCouponRepository {
     List<UserCoupon> findByUserId(Long userId);
 
     UserCoupon save(UserCoupon userCoupon);
+
+    void deleteAllInBatch();
 }
