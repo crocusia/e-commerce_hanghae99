@@ -64,175 +64,114 @@
 ---
 ## 주문-재고-결제 플로우
 
-### 전체 시퀀스
+### 주문 - 재고 - 결제 생성
 ```mermaid
 sequenceDiagram
-      participant Client
-      participant OrderController
-      participant OrderOrchestrator
-      participant OrderService
+    participant Client
+    participant OrderService
+    participant EventBus
+    participant StockService
+    participant PaymentService
+
+    %% 1. 주문 생성 (동기)
+    Client->>OrderService: POST /orders (주문하기)
+    activate OrderService
+    OrderService->>OrderService: 1. Order 생성 (status: PENDING_RESERVATION)
+    OrderService->>EventBus: publish(OrderCreatedEvent)
+    Note over OrderService: [TX 1 커밋]
+    OrderService-->>Client: 
+    deactivate OrderService
+
+    Note over Client: 이후 모든 단계는 비동기 처리
+
+    %% 2. 재고 예약 (비동기 - StockService)
+    EventBus->>StockService: consume(OrderCreatedEvent)
+    activate StockService
+    StockService->>StockService: 2. 재고 예약
+    
+    alt 재고 부족
+        StockService->>EventBus: publish(ReservationFailedEvent)
+        Note over StockService: **재고 예약 실패**
+    else 재고 성공
+        StockService->>EventBus: publish(ReservationCompletedEvent)
+        Note over StockService: **재고 예약 성공**
+    end
+    deactivate StockService
+    
+    %% 3.1. [실패] 재고 예약 실패 시 주문 취소
+    EventBus->>OrderService: consume(ReservationFailedEvent)
+    activate OrderService
+    OrderService->>OrderService: 3.1. Order 상태 변경 (status: RESERVATION_FAILED)
+    OrderService->>EventBus: publish(OrderStatusChangedEvent)
+    deactivate OrderService
+
+    %% 3.2. [성공] 재고 예약 완료 시 결제 시도
+    EventBus->>OrderService: consume(ReservationCompletedEvent)
+    activate OrderService
+    OrderService->>OrderService: 3.2. Order 상태 변경 (status: PENDING)
+    OrderService->>EventBus: publish(OrderPendingEvent)
+    deactivate OrderService
+
+    EventBus->>PaymentService: consume(OrderPendingEvent)
+    activate PaymentService
+    PaymentService->>PaymentService: 4. Payment 생성 및 결제 시도
+```
+
+### 결제
+**결제 성공 시**
+```
+PaymentFailedEvent 발행
+   ↓
+StockEventListener.handlePaymentFailed()
+   ↓
+StockService.releaseReservation() (재고 예약 해제)
+
+OrderEventListener.handlePaymentFailed()
+   ↓
+Order.status = CANCELLED (결제 실패로 인한 주문 실패)
+```
+
+```mermaid
+sequenceDiagram
       participant EventBus
+      participant PaymentListener
       participant StockListener
       participant StockService
       participant OrderListener
-      participant PaymentOrchestrator
-      participant PaymentService
-      participant PaymentListener
+      participant CouponListener
 
-      %% 1. 주문 생성
-      Client->>OrderController: POST /orders
-      activate OrderController
-      OrderController->>OrderOrchestrator: createOrder(request)
-      activate OrderOrchestrator
+      Note over EventBus: 주문 생성 → 재고 예약 완료<br/>→ 결제 자동 생성까지 성공
 
-      OrderOrchestrator->>OrderService: createOrderEntity(request)
-      activate OrderService
-      OrderService->>OrderService: Order 생성 (status: CREATED)
-      OrderService-->>OrderOrchestrator: Order
-      deactivate OrderService
-
-      OrderOrchestrator->>EventBus: publish(OrderCreatedEvent)
-      Note over OrderOrchestrator,EventBus: [TX1 커밋]
-      OrderOrchestrator-->>OrderController: OrderResponse
-      deactivate OrderOrchestrator
-      OrderController-->>Client: 201 Created
-      deactivate OrderController
-
-      Note over Client: 사용자는 주문 생성만 요청<br/>이후는 자동으로 진행
-
-      %% 2. 재고 예약 (비동기)
-      EventBus->>StockListener: @EventListener<br/>handleOrderCreated(event)
-      activate StockListener
-      Note over StockListener: [TX2 시작 - REQUIRES_NEW]
-
-      loop 각 주문 상품별
-          StockListener->>StockService: reserve(orderId, productId, quantity)
-          activate StockService
-          StockService->>StockService: 재고 차감 & 예약 생성
-          StockService-->>StockListener: success
-          deactivate StockService
-      end
-
-      StockListener->>EventBus: publish(ReservationCompletedEvent)
-      Note over StockListener,EventBus: [TX2 커밋]
-      deactivate StockListener
-
-      %% 3. 주문 상태 업데이트 (재고 예약 완료)
-      EventBus->>OrderListener: @EventListener<br/>handleReservationCompleted(event)
-      activate OrderListener
-      Note over OrderListener: [TX3 시작 - REQUIRES_NEW]
-
-      OrderListener->>OrderListener: order.completeReservation()
-      Note over OrderListener: status: CREATED → PENDING<br/>(결제 가능 상태)
-
-      OrderListener->>EventBus: publish(OrderStatusChangedEvent)<br/>or trigger Payment
-      Note over OrderListener,EventBus: [TX3 커밋]<br/>주문 상태가 PENDING이 되면<br/>결제 자동 트리거
-      deactivate OrderListener
-
-      %% 4. 결제 자동 생성 (새로운 부분)
-      EventBus->>PaymentOrchestrator: @EventListener<br/>handleOrderPending(event)
-      activate PaymentOrchestrator
-      Note over PaymentOrchestrator: [TX4 시작]<br/>재고 예약이 완료되었으므로<br/>자동으로 결제 생성
-
-      PaymentOrchestrator->>PaymentService: createPayment(orderId, userId)
-      activate PaymentService
-      PaymentService->>PaymentService: Payment 생성<br/>(status: PENDING)
-      PaymentService-->>PaymentOrchestrator: Payment
-      deactivate PaymentService
-
-      PaymentOrchestrator->>EventBus: publish(PaymentCreatedEvent)
-      Note over PaymentOrchestrator,EventBus: [TX4 커밋]
-      deactivate PaymentOrchestrator
-
-      %% 5. 결제 처리
-      EventBus->>PaymentListener: @EventListener<br/>handlePaymentCreated(event)
+      EventBus->>PaymentListener: handlePaymentCreated(event)
       activate PaymentListener
-      Note over PaymentListener: [TX5 시작 - REQUIRES_NEW]
-
-      PaymentListener->>PaymentService: processPayment(paymentId)
-      activate PaymentService
-      PaymentService->>PaymentService: 외부 PG 호출<br/>(현재: 잔액 차감)
-      PaymentService->>PaymentService: payment.complete()
-      PaymentService-->>PaymentListener: PaymentResult(success)
-      deactivate PaymentService
-
-      PaymentListener->>EventBus: publish(PaymentCompletedEvent)
-      Note over PaymentListener,EventBus: [TX5 커밋]
+      Note over PaymentListener: 결제 성공
+      PaymentListener->>EventBus: publish(PaymentCompleteEvent)
+      Note over PaymentListener: [TX5 커밋]
       deactivate PaymentListener
 
-      %% 6. 결제 완료 후처리 (병렬)
-      par 주문 상태 업데이트
-          EventBus->>OrderListener: @Async @EventListener<br/>handlePaymentCompleted(event)
-          activate OrderListener
-          Note over OrderListener: [TX6-A 시작]
-          OrderListener->>OrderListener: order.completePayment()
-          Note over OrderListener: status: PENDING → PAYMENT_COMPLETED
-          Note over OrderListener: [TX6-A 커밋]
-          deactivate OrderListener
-      and 재고 확정
-          EventBus->>StockListener: @Async @EventListener<br/>handlePaymentCompleted(event)
-          activate StockListener
-          Note over StockListener: [TX6-B 시작]
-          StockListener->>StockService: confirmReservation()
-          activate StockService
-          StockService->>StockService: 예약 → 확정
-          StockService-->>StockListener: success
-          deactivate StockService
-          Note over StockListener: [TX6-B 커밋]
-          deactivate StockListener
-      end
+    par 주문 상태 최종 확정
+        EventBus->>OrderListener: consume(PaymentCompletedEvent)
+        activate OrderListener
+        Note over OrderListener: status: PENDING → **PAYMENT_COMPLETED**
+        Note over OrderListener: [TX 6A 커밋]
+        deactivate OrderListener
+    and 재고 최종 확정 (차감)
+        EventBus->>StockListener: consume(PaymentCompletedEvent)
+        activate StockService
+        StockListener->>StockService: confirmReservation()
+        Note over StockService: 예약 해제 & **실제 재고 차감**
+        Note over StockService: [TX 6B 커밋]
+        deactivate StockService
+    and 쿠폰 최종 사용 처리
+        EventBus->>CouponListener: consume(PaymentCompletedEvent)
+        activate CouponListener
+        Note over CouponListener: 임시 사용 → **최종 사용 처리**
+        Note over CouponListener: [TX 6C 커밋]
+        deactivate CouponListener
+    end
 
-      Note over Client,StockListener: 전체 플로우 완료<br/>사용자는 주문만 생성했지만<br/>재고 예약 → 결제까지 자동 진행
 ```
 
-### 보상 트랜잭션 (Compensating Transaction)
-
-**재고 예약 실패 시**
-```
-ReservationFailedEvent 발행
-   ↓
-OrderEventListener.handleReservationFailed()
-   ↓
-Order.status = RESERVATION_FAILED (재고 부족으로 인한 주문 실패)
-```
-```mermaid
- sequenceDiagram
-      participant Client
-      participant OrderController
-      participant OrderOrchestrator
-      participant EventBus
-      participant StockListener
-      participant StockService
-      participant OrderListener
-
-      Client->>OrderController: POST /orders
-      OrderController->>OrderOrchestrator: createOrder(request)
-      OrderOrchestrator->>EventBus: publish(OrderCreatedEvent)
-      Note over OrderOrchestrator: [TX1 커밋]<br/>Order 생성 완료 (status: CREATED)
-      OrderOrchestrator-->>Client: 201 Created
-
-      EventBus->>StockListener: handleOrderCreated(event)
-      activate StockListener
-      StockListener->>StockService: reserve(productId, quantity)
-      activate StockService
-      StockService->>StockService: 재고 부족 확인
-      StockService-->>StockListener: throw InsufficientStockException
-      deactivate StockService
-
-      Note over StockListener: 예외를 catch하고<br/>실패 이벤트 발행
-      StockListener->>EventBus: publish(ReservationFailedEvent)<br/>reason: "재고 부족"
-      Note over StockListener: [TX2 커밋]<br/>예외를 throw하지 않음!
-      deactivate StockListener
-
-      EventBus->>OrderListener: handleReservationFailed(event)
-      activate OrderListener
-      OrderListener->>OrderListener: order.failReservation()
-      Note over OrderListener: status: CREATED → RESERVATION_FAILED<br/>(결제 불가 상태)
-      Note over OrderListener: [TX3 커밋]
-      deactivate OrderListener
-
-      Note over Client,OrderListener: 결제가 자동 트리거되지 않음<br/>주문은 RESERVATION_FAILED 상태로 종료
-```
 **결제 실패 시**
 ```
 PaymentFailedEvent 발행
@@ -256,15 +195,11 @@ sequenceDiagram
       participant OrderListener
       participant CouponListener
 
-      Note over EventBus: 주문 생성 → 재고 예약 완료<br/>→ 결제 자동 생성까지 성공
-
       EventBus->>PaymentListener: handlePaymentCreated(event)
       activate PaymentListener
       PaymentListener->>PaymentService: processPayment(paymentId)
       activate PaymentService
-      PaymentService->>PaymentService: 외부 PG 호출<br/>(잔액 부족 등)
-      PaymentService->>PaymentService: payment.fail(reason)
-      PaymentService-->>PaymentListener: PaymentResult(failure)
+      PaymentService->>PaymentListener: 잔액 차감<br/>(잔액 부족시)
       deactivate PaymentService
 
       PaymentListener->>EventBus: publish(PaymentFailedEvent)<br/>reason: "잔액 부족"
@@ -298,6 +233,11 @@ sequenceDiagram
       Note over EventBus: 보상 트랜잭션 완료<br/>모든 리소스 원복
 
 ```
+## 고민한 점
+### 1. 데이터 일관성 및 사용자 경험 리스크
+
+## MSA 구조의 장단점
+### 1. 데이터 일관성 및 사용자 경험 리스크
 
 ## MSA 전환 고려사항
 
