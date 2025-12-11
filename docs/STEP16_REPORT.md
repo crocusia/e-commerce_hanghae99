@@ -243,6 +243,15 @@ sequenceDiagram
 재고 예약 성공에 따라 주문 상태가 업데이트 되었을 때 이벤트를 발행,
 결제가 해당 이벤트를 구독하고 이벤트 발생 시 결제가 생성되는 구조로 변경하고자 함.
 
+### 2. 결제 생성 시, 주문 상태 검증 추가
+
+1과 같은 맥락에서, 중복 요청 처리 방지를 위해 멱등성 검사를 추가하고자 함.
+```
+    if (payment.getStatus() != PaymentStatus.PENDING) {
+        throw new CustomException(ErrorCode.INVALID_PAYMENT_STATUS);
+    }
+```
+
 ## 장단점 분석
 ### 장점
 - 높은 확장성
