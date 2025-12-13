@@ -122,13 +122,13 @@ sequenceDiagram
 ```
 PaymentFailedEvent 발행
    ↓
-StockEventListener.handlePaymentFailed()
+StockEventListener.handlePaymentCompleted()
    ↓
-StockService.releaseReservation() (재고 예약 해제)
+StockService.releaseReservation() (재고 예약 해제, 재고 실제 차감)
 
-OrderEventListener.handlePaymentFailed()
+OrderEventListener.handlePaymentCompleted()
    ↓
-Order.status = CANCELLED (결제 실패로 인한 주문 실패)
+Order.status = PAYMENT.COMPLETED (결제 성공으로 처리)
 ```
 
 ```mermaid
