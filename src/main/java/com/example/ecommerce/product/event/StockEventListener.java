@@ -26,6 +26,7 @@ public class StockEventListener {
     private final StockReservationRepository reservationRepository;
     private final MessagePublisher eventPublisher;
 
+    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleOrderCreated(OrderCreatedEvent event) {
