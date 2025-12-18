@@ -3,13 +3,9 @@ package com.example.ecommerce.coupon.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -21,7 +17,6 @@ public class CouponRedisService {
     private static final String COUNTER_KEY_PREFIX = "coupon:";
     private static final String COUNTER_KEY_SUFFIX = ":counter";
     private static final String ISSUED_USERS_KEY_SUFFIX = ":issued:users";
-    private static final String WAITING_QUEUE_KEY_SUFFIX = ":waiting:queue";
     private static final String USER_STATUS_KEY_PREFIX = "coupon:";
     private static final String USER_STATUS_KEY_SUFFIX = ":user:";
     private static final String STATUS_KEY_SUFFIX = ":status";
@@ -80,21 +75,20 @@ public class CouponRedisService {
         }
     }
 
-    public boolean addToWaitingQueue(Long couponId, Long userId, long timestamp) {
+    /**
+     * Set에서 중복 체크 제거 (Kafka 발행 실패 시 롤백용)
+     *
+     * @param couponId 쿠폰 ID
+     * @param userId   사용자 ID
+     */
+    public void removeDuplicate(Long couponId, Long userId) {
         try {
-            String key = getWaitingQueueKey(couponId);
-            Boolean result = redisTemplate.opsForZSet().add(key, userId.toString(), timestamp);
-
-            if (Boolean.TRUE.equals(result)) {
-                log.debug("대기열 추가 - couponId: {}, userId: {}, timestamp: {}", couponId, userId, timestamp);
-                return true;
-            }
-
-            return false;
+            String key = getIssuedUsersKey(couponId);
+            redisTemplate.opsForSet().remove(key, userId.toString());
+            log.debug("중복 체크 롤백 - couponId: {}, userId: {}", couponId, userId);
 
         } catch (Exception e) {
-            log.error("대기열 추가 실패 - couponId: {}, userId: {}", couponId, userId, e);
-            return false;
+            log.error("중복 체크 롤백 실패 - couponId: {}, userId: {}", couponId, userId, e);
         }
     }
 
@@ -120,17 +114,6 @@ public class CouponRedisService {
         }
     }
 
-    public Long getWaitingRank(Long couponId, Long userId) {
-        try {
-            String key = getWaitingQueueKey(couponId);
-            return redisTemplate.opsForZSet().rank(key, userId.toString());
-
-        } catch (Exception e) {
-            log.error("대기 순번 조회 실패 - couponId: {}, userId: {}", couponId, userId, e);
-            return null;
-        }
-    }
-
     /**
      * 현재 발급된 수량 조회 (GET)
      *
@@ -150,55 +133,6 @@ public class CouponRedisService {
     }
 
     /**
-     * 대기열에서 배치 추출 (ZPOPMIN)
-     * Score가 낮은 순서대로 (먼저 요청한 순서) 추출
-     *
-     * @param couponId  쿠폰 ID
-     * @param batchSize 추출 개수
-     * @return 추출된 userId 목록
-     */
-    public List<Long> popFromWaitingQueue(Long couponId, int batchSize) {
-        try {
-            String key = getWaitingQueueKey(couponId);
-            Set<ZSetOperations.TypedTuple<String>> result =
-                redisTemplate.opsForZSet().popMin(key, batchSize);
-
-            if (result == null || result.isEmpty()) {
-                return List.of();
-            }
-
-            List<Long> userIds = result.stream()
-                .map(tuple -> Long.parseLong(tuple.getValue()))
-                .collect(Collectors.toList());
-
-            log.info("대기열에서 배치 추출 - couponId: {}, size: {}", couponId, userIds.size());
-            return userIds;
-
-        } catch (Exception e) {
-            log.error("대기열 배치 추출 실패 - couponId: {}", couponId, e);
-            return List.of();
-        }
-    }
-
-    /**
-     * 대기열 크기 조회 (ZCARD)
-     *
-     * @param couponId 쿠폰 ID
-     * @return 대기열 크기
-     */
-    public long getWaitingQueueSize(Long couponId) {
-        try {
-            String key = getWaitingQueueKey(couponId);
-            Long size = redisTemplate.opsForZSet().size(key);
-            return size != null ? size : 0L;
-
-        } catch (Exception e) {
-            log.error("대기열 크기 조회 실패 - couponId: {}", couponId, e);
-            return 0L;
-        }
-    }
-
-    /**
      * Redis 카운터 초기화
      * 테스트 또는 관리 목적
      *
@@ -208,11 +142,9 @@ public class CouponRedisService {
         try {
             String counterKey = getCounterKey(couponId);
             String usersKey = getIssuedUsersKey(couponId);
-            String queueKey = getWaitingQueueKey(couponId);
 
             redisTemplate.delete(counterKey);
             redisTemplate.delete(usersKey);
-            redisTemplate.delete(queueKey);
 
             log.info("Redis 카운터 초기화 완료 - couponId: {}", couponId);
 
@@ -228,10 +160,6 @@ public class CouponRedisService {
 
     private String getIssuedUsersKey(Long couponId) {
         return COUNTER_KEY_PREFIX + couponId + ISSUED_USERS_KEY_SUFFIX;
-    }
-
-    private String getWaitingQueueKey(Long couponId) {
-        return COUNTER_KEY_PREFIX + couponId + WAITING_QUEUE_KEY_SUFFIX;
     }
 
     private String getUserStatusKey(Long couponId, Long userId) {

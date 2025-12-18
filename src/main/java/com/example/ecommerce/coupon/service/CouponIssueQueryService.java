@@ -25,6 +25,9 @@ public class CouponIssueQueryService {
      * 1. Redis에서 상태 조회 (빠른 응답)
      * 2. Redis에 없으면 DB에서 조회
      *
+     * Kafka 기반 시스템에서는 대기열이 없고 실시간 처리되므로
+     * PENDING 상태는 매우 짧은 시간만 유지됩니다 (평균 50ms)
+     *
      * @param couponId 쿠폰 ID
      * @param userId   사용자 ID
      * @return 발급 상태 응답 DTO
@@ -35,20 +38,8 @@ public class CouponIssueQueryService {
         String redisStatus = redisService.getUserStatus(couponId, userId);
 
         if (redisStatus != null) {
-            // PENDING 상태인 경우 대기 순번 포함
-            if ("PENDING".equals(redisStatus)) {
-                Long waitingRank = redisService.getWaitingRank(couponId, userId);
-                long queueSize = redisService.getWaitingQueueSize(couponId);
-
-                return CouponIssueStatusResponse.builder()
-                    .status(redisStatus)
-                    .waitingRank(waitingRank)
-                    .queueSize(queueSize)
-                    .message("발급 대기 중입니다.")
-                    .build();
-            }
-
-            // ISSUED 또는 FAILED 상태
+            // Kafka 기반으로 전환되어 대기 순번이 없음
+            // PENDING 상태는 Kafka Consumer가 처리 중임을 의미
             return CouponIssueStatusResponse.builder()
                 .status(redisStatus)
                 .message(getMessageForStatus(redisStatus))
@@ -82,19 +73,20 @@ public class CouponIssueQueryService {
     private String getMessageForStatus(String status) {
         return switch (status) {
             case "ISSUED" -> "쿠폰이 발급되었습니다.";
-            case "PENDING" -> "발급 대기 중입니다.";
-            case "FAILED" -> "쿠폰 발급에 실패했습니다.";
+            case "PENDING" -> "쿠폰 발급을 처리 중입니다. 잠시만 기다려주세요.";
+            case "FAILED" -> "쿠폰 발급에 실패했습니다. 고객센터에 문의해주세요.";
             default -> "알 수 없는 상태입니다.";
         };
     }
 
     /**
      * 쿠폰 발급 상태 응답 DTO
+     *
+     * Kafka 기반으로 전환되어 waitingRank, queueSize는 사용하지 않음
+     * (실시간 처리로 대기 순번 개념이 없음)
      */
     public static class CouponIssueStatusResponse {
         private String status;          // PENDING, ISSUED, FAILED, NOT_REQUESTED
-        private Long waitingRank;       // 대기 순번 (1-based, PENDING 일 때만)
-        private Long queueSize;         // 대기열 크기 (PENDING 일 때만)
         private String message;         // 사용자 메시지
         private Long userCouponId;      // 발급된 UserCoupon ID (ISSUED 일 때만)
 
@@ -104,14 +96,6 @@ public class CouponIssueQueryService {
 
         public String getStatus() {
             return status;
-        }
-
-        public Long getWaitingRank() {
-            return waitingRank;
-        }
-
-        public Long getQueueSize() {
-            return queueSize;
         }
 
         public String getMessage() {
@@ -124,23 +108,11 @@ public class CouponIssueQueryService {
 
         public static class CouponIssueStatusResponseBuilder {
             private String status;
-            private Long waitingRank;
-            private Long queueSize;
             private String message;
             private Long userCouponId;
 
             public CouponIssueStatusResponseBuilder status(String status) {
                 this.status = status;
-                return this;
-            }
-
-            public CouponIssueStatusResponseBuilder waitingRank(Long waitingRank) {
-                this.waitingRank = waitingRank;
-                return this;
-            }
-
-            public CouponIssueStatusResponseBuilder queueSize(Long queueSize) {
-                this.queueSize = queueSize;
                 return this;
             }
 
@@ -157,8 +129,6 @@ public class CouponIssueQueryService {
             public CouponIssueStatusResponse build() {
                 CouponIssueStatusResponse response = new CouponIssueStatusResponse();
                 response.status = this.status;
-                response.waitingRank = this.waitingRank;
-                response.queueSize = this.queueSize;
                 response.message = this.message;
                 response.userCouponId = this.userCouponId;
                 return response;
